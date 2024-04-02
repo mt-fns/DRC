@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import math
 
 def extract_edges(frame):
     # change image to hsv for masking
@@ -43,18 +44,137 @@ def detect_line_segments(cropped_edges):
 
     return line_segments
 
-while True:
-    frame = cv2.imread('road1_240x320.png')
+
+def calculate_slope_intercept(frame, line_segments):
+    height, width, ch = frame.shape
+    lane_lines = []
+
+    left_line = []
+    right_line = []
+
+    # bound is 2/3
+    bound = 1/3
+    left_bound = width * (1 - bound)
+    right_bound = width * bound
+
+    for line in line_segments:
+        # points that make up the line segments
+        x1, y1, x2, y2 = line[0]
+
+        # skip vertical line
+        if x1 == x2:
+            print("Vertical Line")
+            continue
+
+        fit = np.polyfit((x1, x2), (y1, y2), 1)
+        slope = fit[0]
+        intercept = fit[1]
+
+        # check if left line is within bounds
+        if slope < 0:
+            if x1 < left_bound and x2 < left_bound:
+                left_line.append((slope, intercept))
+        # check if right line is within bounds
+        else:
+            if x1 > right_bound and x2 > right_bound:
+                right_line.append((slope, intercept))
+
+    left_avg = np.average(left_line, axis=0)
+    right_avg = np.average(right_line, axis=0)
+
+    if len(left_line) > 0:
+        lane_lines.append(get_end_points(frame, left_avg))
+
+    if len(right_line) > 0:
+        lane_lines.append(get_end_points(frame, right_avg))
+
+    return lane_lines
+
+# helper function for slope intercept
+def get_end_points(frame, line_fit):
+    height, width, _ = frame.shape
+    slope, intercept = line_fit
+    y1 = height  # bottom of the frame
+    y2 = int(y1 * 1 / 2)  # make points from middle of the frame down
+
+    # bound the coordinates within the frame
+    x1 = max(-width, min(2 * width, int((y1 - intercept) / slope)))
+    x2 = max(-width, min(2 * width, int((y2 - intercept) / slope)))
+    return [[x1, y1, x2, y2]]
+
+def detect_lane(frame):
     edges = extract_edges(frame)
     cropped_edges = crop_image(edges)
     line_segments = detect_line_segments(cropped_edges)
+    detected_lane = calculate_slope_intercept(frame, line_segments)
 
-    cv2.imshow("balls", cropped_edges)
+    return detected_lane
 
-    if cv2.waitKey(1) == ord('q'):
+
+def get_steering_angle(height, width, lane_lines):
+    # two lane lines
+    # print(lane_lines.shape)
+    # print(lane_lines[1][0], lane_lines[0][0])
+
+    if len(lane_lines) == 2:
+        print("two lines detected")
+        _, _, left_x2, _ = lane_lines[0][0]
+        _, _, right_x2, _ = lane_lines[1][0]
+        mid = int(width / 2)
+        x_offset = (left_x2 + right_x2) / 2 - mid
+        y_offset = int(height / 2)
+
+    # one lane line
+    else:
+        x1, _, x2, _ = lane_lines[0][0]
+        x_offset = x2 - x1
+        y_offset = int(height / 2)
+
+    angle_to_mid_radian = math.atan(x_offset / y_offset)  # angle (in radian) to center vertical line
+    angle_to_mid_deg = int(angle_to_mid_radian * 180.0 / math.pi)  # angle (in degrees) to center vertical line
+    steering_angle = angle_to_mid_deg + 90  # this is the steering angle needed by picar front wheel
+
+    print(steering_angle)
+
+
+def display_steering(frame, lane_lines, steering_angle):
+    thicc = 9
+    color = (0, 255, 0)
+
+    line_1 = lane_lines[0][0]
+    start_line_1 = (line_1[0], line_1[1])
+    end_line_1 = (line_1[2], line_1[3])
+
+    win_name = "kush is hot"
+
+    if len(lane_lines) == 2:
+        line_2 = lane_lines[1][0]
+        start_line_2 = (line_2[0], line_2[1])
+        end_line_2 = (line_2[2], line_2[3])
+
+        image = cv2.line(frame, start_line_1, end_line_1, color, thicc)
+        image = cv2.line(image, start_line_2, end_line_2, color, thicc)
+        cv2.imshow(win_name, image)
+
+    # one line detected
+    else:
+        image = cv2.line(frame, start_line_1, end_line_1, color, thicc)
+        cv2.imshow(win_name, image)
+    # print(lane_lines)
+
+cap = cv2.VideoCapture('videoplayback (2).mp4')
+
+while True:
+    ret, frame = cap.read()
+    height, width, ch = frame.shape
+    if ret == True:
+        lane_lines = detect_lane(frame)
+        print(lane_lines)
+        steering_angle = get_steering_angle(height, width, lane_lines)
+        display_steering(frame, lane_lines, steering_angle)
+    
+        if cv2.waitKey(1) == ord('q'):
+            break
+    else:
+        print("error reading")
         break
-
-print(line_segments)
-print(cropped_edges.shape)
-print("Hello World")
-
