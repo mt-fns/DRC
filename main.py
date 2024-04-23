@@ -41,8 +41,12 @@ def detect_line_segments(cropped_edges):
     min_threshold = 10  # minimal of votes
 
     line_segments = cv2.HoughLinesP(cropped_edges, rho, angle, min_threshold, np.array([]), minLineLength=8, maxLineGap=4)
-
-    return line_segments
+    try:
+        len(line_segments)
+        print("yes")
+        return line_segments
+    except:
+        return []
 
 
 def calculate_slope_intercept(frame, line_segments):
@@ -106,8 +110,12 @@ def detect_lane(frame):
     edges = extract_edges(frame)
     cropped_edges = crop_image(edges)
     line_segments = detect_line_segments(cropped_edges)
-    detected_lane = calculate_slope_intercept(frame, line_segments)
 
+    if len(line_segments) == 0:
+        print("no lane lines")
+        return []
+
+    detected_lane = calculate_slope_intercept(frame, line_segments)
     return detected_lane
 
 
@@ -125,7 +133,8 @@ def get_steering_angle(height, width, lane_lines):
         y_offset = int(height / 2)
 
     # one lane line
-    else:
+    elif len(lane_lines) == 1:
+        print("one line detected")
         x1, _, x2, _ = lane_lines[0][0]
         x_offset = x2 - x1
         y_offset = int(height / 2)
@@ -145,36 +154,47 @@ def display_steering(frame, lane_lines, steering_angle):
     start_line_1 = (line_1[0], line_1[1])
     end_line_1 = (line_1[2], line_1[3])
 
-    win_name = "kush is hot"
-
-    if len(lane_lines) == 2:
-        line_2 = lane_lines[1][0]
-        start_line_2 = (line_2[0], line_2[1])
-        end_line_2 = (line_2[2], line_2[3])
-
-        image = cv2.line(frame, start_line_1, end_line_1, color, thicc)
-        image = cv2.line(image, start_line_2, end_line_2, color, thicc)
-        cv2.imshow(win_name, image)
+    # if len(lane_lines) == 2:
+    #     line_2 = lane_lines[1][0]
+    #     start_line_2 = (line_2[0], line_2[1])
+    #     end_line_2 = (line_2[2], line_2[3])
+    #
+    #     image = cv2.line(frame, start_line_1, end_line_1, color, thicc)
+    #     cv2.line(image, start_line_2, end_line_2, color, thicc)
 
     # one line detected
-    else:
-        image = cv2.line(frame, start_line_1, end_line_1, color, thicc)
-        cv2.imshow(win_name, image)
-    # print(lane_lines)
+    cv2.line(frame, start_line_1, end_line_1, color, thicc)
 
-cap = cv2.VideoCapture('videoplayback (2).mp4')
 
-while True:
+cap = cv2.VideoCapture('test1.mp4')
+while(cap.isOpened()):
     ret, frame = cap.read()
     height, width, ch = frame.shape
-    if ret == True:
-        lane_lines = detect_lane(frame)
-        print(lane_lines)
+
+    lane_lines = detect_lane(frame)
+    if len(lane_lines) > 0:
         steering_angle = get_steering_angle(height, width, lane_lines)
         display_steering(frame, lane_lines, steering_angle)
-    
+
+    if ret == True:
+        cv2.imshow('Vincent is hot', frame)
+
         if cv2.waitKey(1) == ord('q'):
             break
+
     else:
-        print("error reading")
         break
+
+cap.release()
+cv2.destroyAllWindows()
+
+# while True:
+#     frame = cv2.imread('road1_240x320.png')
+#     height, width, ch = frame.shape
+#
+#     lane_lines = detect_lane(frame)
+#     steering_angle = get_steering_angle(height, width, lane_lines)
+#     display_steering(frame, lane_lines, steering_angle)
+#
+#     if cv2.waitKey(1) == ord('q'):
+#         break
