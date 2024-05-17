@@ -12,7 +12,7 @@ pwm2.start(0)				#start PWM of required Duty Cycle
 GPIO.output(dir2_pin, GPIO.HIGH)
 #while(True):
 for duty in range (5,10):
-    pwm2.ChangeDutyCycle(duty)
+    pwm2.ChangeDutyCycle(0)
     sleep(1)
 
 def set_angle(angle):
