@@ -7,8 +7,11 @@ def extract_edges(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # get only the blue pixels
-    lower_blue = np.array([60, 40, 40])
-    upper_blue = np.array([150, 255, 255])
+    # blue lower  = [60, 40, 40]
+    # blue upper = [150, 255, 255]
+
+    lower_blue = np.array([0,0,0])
+    upper_blue = np.array([240,230,140])
     mask = cv2.inRange(hsv, lower_blue, upper_blue)
 
     # extract edges from lines
@@ -165,8 +168,8 @@ def display_steering(frame, lane_lines, steering_angle):
     # one line detected
     cv2.line(frame, start_line_1, end_line_1, color, thicc)
 
+cap = cv2.VideoCapture('IMG_1854.MOV')
 
-cap = cv2.VideoCapture('test1.mp4')
 while(cap.isOpened()):
     ret, frame = cap.read()
     height, width, ch = frame.shape
