@@ -16,7 +16,7 @@ GPIO.setup(dir2_pin, GPIO.OUT)
 GPIO.setup(pwm1_pin,GPIO.OUT)
 GPIO.setup(dir1_pin, GPIO.OUT)
 pwm2 = GPIO.PWM(pwm2_pin,50)		#create PWM instance with frequency (pin, frequency)
-pwm2.start(0)				#start PWM of required Duty Cycle 
+pwm2.start(0)				#start PWM of required Duty Cycle
 pwm1 = GPIO.PWM(pwm1_pin,50)
 pwm1.start(0)
 GPIO.output(dir2_pin, GPIO.HIGH)
@@ -67,7 +67,7 @@ pwm2.ChangeDutyCycle(40)
 #     if(duty == 0):
 #         break
 #     servo_pwm.ChangeDutyCycle(int(duty))
-    print("changing ", duty)
+#    print("changing ", duty)
 #for duty in range (0,50, 5):
  #   pwm2.ChangeDutyCycle(duty)
   #  print("changing ", duty)

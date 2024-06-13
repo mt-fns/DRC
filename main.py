@@ -168,28 +168,6 @@ def display_steering(frame, lane_lines, steering_angle):
     # one line detected
     cv2.line(frame, start_line_1, end_line_1, color, thicc)
 
-cap = cv2.VideoCapture('IMG_1854.MOV')
-
-while(cap.isOpened()):
-    ret, frame = cap.read()
-    height, width, ch = frame.shape
-
-    lane_lines = detect_lane(frame)
-    if len(lane_lines) > 0:
-        steering_angle = get_steering_angle(height, width, lane_lines)
-        display_steering(frame, lane_lines, steering_angle)
-
-    if ret == True:
-        cv2.imshow('Vincent is hot', frame)
-
-        if cv2.waitKey(1) == ord('q'):
-            break
-
-    else:
-        break
-
-cap.release()
-cv2.destroyAllWindows()
 
 # while True:
 #     frame = cv2.imread('road1_240x320.png')
