@@ -27,7 +27,7 @@ cv2.setTrackbarPos('SMax', 'image', sMax)
 cv2.setTrackbarPos('VMax', 'image', vMax)
 
 # Load image
-img = cv2.VideoCapture(1)
+img = cv2.VideoCapture(0)
 while True:
     ret, image = img.read()
 
