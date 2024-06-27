@@ -155,6 +155,10 @@ def display_lines(frame, lines, line_color=(0, 255, 0), line_width=5):
     line_image = cv2.addWeighted(frame, 0.8, line_image, 1, 1)
     return line_image
 
+def stabilize_steering(previous_angle, current_angle, previous_weight=0.9, current_weight=0.1):
+    stabilized_angle = previous_angle * previous_weight + current_angle * current_weight
+    return stabilized_angle
+
 def display_heading_line(frame, steering_angle, line_color=(0, 0, 255), line_width=5 ):
     heading_image = np.zeros_like(frame)
     height, width, _ = frame.shape
@@ -180,21 +184,42 @@ def display_heading_line(frame, steering_angle, line_color=(0, 0, 255), line_wid
 
 def test_video(src):
     cap = cv2.VideoCapture(src)
+    previous_angle = 0
+
+    # how many angles to output per second (camera has 60fps)
+    sensitivity = 5
+    frame_counter = 0
 
     while cap.isOpened():
         ret, frame = cap.read()
         height, width, ch = frame.shape
 
         lane_lines = detect_lane(frame)
+        frame_counter += 1
+
+        if (frame_counter % sensitivity == 0):
+            if len(lane_lines) > 0:
+                steering_angle = get_steering_angle(height, width, lane_lines)
+
+                # TODO: output steering angles based on sensitivity
+                previous_angle = stabilize_steering(previous_angle, steering_angle)
+
+                print(steering_angle)
+                print(previous_angle)
+                # lane_lines_frame = display_lines(frame, lane_lines)
+
+                # if steering_angle is not None:
+                heading_line_frame = display_heading_line(frame, previous_angle)
+                cv2.imshow('Test v2', heading_line_frame)
+
+
         if len(lane_lines) > 0:
             steering_angle = get_steering_angle(height, width, lane_lines)
-            # lane_lines_frame = display_lines(frame, lane_lines)
 
-            # if steering_angle is not None:
-            heading_line_frame = display_heading_line(frame, steering_angle)
-            cv2.imshow('Test v2', heading_line_frame)
-            # else:
-            #     cv2.imshow('Test v2', lane_lines_frame)
+            previous_angle = stabilize_steering(previous_angle, steering_angle)
+
+            print(steering_angle)
+            print(previous_angle)
 
         if ret == True:
             # cv2.imshow('Vincent is hot', frame)
