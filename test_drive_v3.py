@@ -178,7 +178,7 @@ def get_steering_angle(height, width, lane_lines):
 
     angle_to_mid_radian = math.atan(x_offset / y_offset)  # angle (in radian) to center vertical line
     angle_to_mid_deg = int(angle_to_mid_radian * 180.0 / math.pi)  # angle (in degrees) to center vertical line
-    steering_angle = angle_to_mid_deg + 90  # this is the steering angle needed by front wheel
+    steering_angle = angle_to_mid_deg - 90  # this is the steering angle needed by front wheel
 
     return steering_angle
 
@@ -247,8 +247,8 @@ def test_video(src):
                 # lane_lines_frame = display_lines(frame, lane_lines)
 
                 # if steering_angle is not None:
-                heading_line_frame = display_heading_line(frame, previous_angle)
-                cv2.imshow('Test v2', heading_line_frame)
+                # heading_line_frame = display_heading_line(frame, previous_angle)
+                # cv2.imshow('Test v2', heading_line_frame)
 
 
         if len(lane_lines) > 0:
