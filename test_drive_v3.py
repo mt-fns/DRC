@@ -242,6 +242,7 @@ def test_video(src):
                 # TODO: output steering angles based on sensitivity
                 previous_angle = stabilize_steering(previous_angle, steering_angle)
 
+                turn(previous_angle)
                 print(steering_angle)
                 print(previous_angle)
                 # lane_lines_frame = display_lines(frame, lane_lines)
