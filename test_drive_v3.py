@@ -9,11 +9,11 @@ from gpiozero.pins.pigpio import PiGPIOFactory
 import pigpio
 
 
-SMOOTHING_FACTOR = 0.3
+SMOOTHING_FACTOR = 1
 
 MAX_ANGLE = 15
-MIN_ANGLE = -18
-STRAIGHT_ANGLE = -3
+MIN_ANGLE = -15
+STRAIGHT_ANGLE = 0
 
 pwm2_pin = 5
 dir2_pin = 6
