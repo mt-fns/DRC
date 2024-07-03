@@ -245,4 +245,4 @@ def test_image(src):
     # closing all open windows
     cv2.destroyAllWindows()
 
-test_video(0)
+test_video("test1.mp4")

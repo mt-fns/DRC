@@ -52,9 +52,22 @@ def extract_edges(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # get only the blue pixels
+
     lower_blue = np.array([60, 40, 40])
     upper_blue = np.array([150, 255, 255])
-    mask = cv2.inRange(hsv, lower_blue, upper_blue)
+
+    # alternative hsv mask
+    # lower_yellow = np.array([22, 93, 0])
+    # upper_yellow = np.array([45, 255, 255])
+
+    lower_yellow = np.array([0, 10, 170])
+    upper_yellow = np.array([180, 255, 255])
+
+    mask_blue = cv2.inRange(hsv, lower_blue, upper_blue)
+    mask_yellow = cv2.inRange(hsv, lower_yellow, upper_yellow)
+
+    # get yellow and blue lines
+    mask = mask_blue | mask_yellow
 
     # extract edges from lines
     edges = cv2.Canny(mask, 200, 400)    # change to contour detection later
@@ -233,7 +246,8 @@ def test_video(src):
 
     # how many angles to output per second (camera has 60fps)
     #won't this output 60/sensitivity = 12 per second?
-    sensitivity = 6
+    frame_rate = 6 # 10 per second
+    steering_rate = 18 #
     frame_counter = 0
 
     while cap.isOpened():
@@ -242,14 +256,14 @@ def test_video(src):
             frame_counter += 1
         else:
             continue
-        if (frame_counter % sensitivity != 0):
+        if (frame_counter % frame_rate != 0):
             continue
         height, width, ch = frame.shape
         
         lane_lines = detect_lane(frame)
         
 
-        if (frame_counter % sensitivity == 0):
+        if (frame_counter % frame_rate == 0):
             print('TEST 1')
 
             if len(lane_lines) > 0:
@@ -260,7 +274,7 @@ def test_video(src):
 
                 print("present angle", steering_angle)
                 print("smoothed angle:", previous_angle)
-                turn(previous_angle)
+
                 angle = (MAX_ANGLE - MIN_ANGLE)/2 * previous_angle/70 + STRAIGHT_ANGLE
                 if angle > MAX_ANGLE:
                     angle = MAX_ANGLE
@@ -273,7 +287,8 @@ def test_video(src):
                 # heading_line_frame = display_heading_line(frame, previous_angle)
                 # cv2.imshow('Test v2', heading_line_frame)
             # continue
-
+        if frame_counter % steering_rate == 0:
+            turn(previous_angle)
 
         # if len(lane_lines) > 0:
         #     #print('TEST')
