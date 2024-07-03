@@ -1,0 +1,37 @@
+test_video 
+    videoccapture
+    detect_lane(frame)
+        extract_edges
+            extracts colour plane
+            cv2.canny, detects edges using gradient
+        crop_image
+        detect_line_segments
+            line_segments[] = cv2.houghLinesP
+        calculate_slope_intercept
+
+    get_steering_angle
+    (height, width, lane_lines)
+
+
+    idea for obstacles:
+        bool detect_obstacle
+            extract colour plane
+            cv2.canny to extract contours
+            cv2.contourArea to find biggest obstacle in range of view, and determine if it meets minimum area to worry about now
+            if obstacle_detected
+                cv2.houghLinesP to find straight lines
+                detect_vert_edge_of_obstacle
+                    for the lines if x1 -x2 < some range (i.e. is vertical edge)
+                
+                case1: two lanes
+                    min(obstacle_line x1 - lane x coordinate) (i.e. is object closer to left or right.)
+                    if obstacle_closer_to_left_lane and
+                    #if the obstacle is on right side and left most edge of it is in right side of field of vision
+                        use the left most edge and the left lane to detect 
+                    else the obstacle is on right side and left of our field of vision
+                        o shit, slow down and turn left, proportional to how far left the obstacle is in our vision
+                case2: one lane
+                    if either edge of obstacle is very close to the lane we dected
+                        we're on the wrong side, go hard away from
+                case 3 obstalce detected but no lane
+                    hopefully we're on the correct side, go away from the object i.e. if in left of field of vision go right, vice verse
