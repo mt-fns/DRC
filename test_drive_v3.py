@@ -9,7 +9,7 @@ from gpiozero.pins.pigpio import PiGPIOFactory
 import pigpio
 
 
-SMOOTHING_FACTOR = 1
+SMOOTHING_FACTOR = 0.5
 
 MAX_ANGLE = 15
 MIN_ANGLE = -15
@@ -32,8 +32,10 @@ servo.angle = -3
 
 def turn(angle) :
     # this is just a random formula to choose speed based on, linearly decreasing speed from some max to 0.1 which is real slow
-    speed = 0.3 - 0.2 * (abs(angle)/90)
-    angle = (MAX_ANGLE - MIN_ANGLE)/2 * angle/70 + STRAIGHT_ANGLE
+    speed = 0.2
+    if abs(angle) > 20:
+        speed = 0.13
+    angle = (MAX_ANGLE - MIN_ANGLE)/2 * angle/30 + STRAIGHT_ANGLE
     if angle > MAX_ANGLE:
         angle = MAX_ANGLE
     elif angle < MIN_ANGLE:
@@ -47,7 +49,7 @@ def turn(angle) :
 
 
 
-def extract_edges(frame):
+def  (frame):
     # change image to hsv for masking
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
@@ -246,8 +248,8 @@ def test_video(src):
 
     # how many angles to output per second (camera has 60fps)
     #won't this output 60/sensitivity = 12 per second?
-    frame_rate = 6 # 10 per second
-    steering_rate = 18 #
+    frame_rate = 1 # 10 per second
+    steering_rate = 1 #
     frame_counter = 0
 
     while cap.isOpened():
@@ -264,7 +266,7 @@ def test_video(src):
         
 
         if (frame_counter % frame_rate == 0):
-            print('TEST 1')
+            #print('TEST 1')
 
             if len(lane_lines) > 0:
                 steering_angle = get_steering_angle(height, width, lane_lines)
@@ -272,15 +274,15 @@ def test_video(src):
                 # TODO: output steering angles based on sensitivity
                 previous_angle = stabilize_steering(previous_angle, steering_angle)
 
-                print("present angle", steering_angle)
-                print("smoothed angle:", previous_angle)
+                #print("present angle", steering_angle)
+                #print("smoothed angle:", previous_angle)
 
-                angle = (MAX_ANGLE - MIN_ANGLE)/2 * previous_angle/70 + STRAIGHT_ANGLE
+                angle = (MAX_ANGLE - MIN_ANGLE)/2 * previous_angle/30 + STRAIGHT_ANGLE
                 if angle > MAX_ANGLE:
                     angle = MAX_ANGLE
                 elif angle < MIN_ANGLE:
                     angle = MIN_ANGLE
-                print("normalised servo angle", angle)
+                #print("normalised servo angle", angle)
                 # lane_lines_frame = display_lines(frame, lane_lines)
 
                 # if steering_angle is not None:
@@ -288,7 +290,10 @@ def test_video(src):
                 # cv2.imshow('Test v2', heading_line_frame)
             # continue
         if frame_counter % steering_rate == 0:
-            turn(previous_angle)
+            pass
+            print("present angle", steering_angle)
+            print("smoothed angle:", previous_angle)
+            #turn(previous_angle)
 
         # if len(lane_lines) > 0:
         #     #print('TEST')
