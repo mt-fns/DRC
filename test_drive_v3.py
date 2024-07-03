@@ -57,11 +57,12 @@ def extract_edges(frame):
     upper_blue = np.array([150, 255, 255])
 
     # alternative hsv mask
-    # lower_yellow = np.array([22, 93, 0])
-    # upper_yellow = np.array([45, 255, 255])
+    lower_yellow = np.array([22, 93, 0])
+    upper_yellow = np.array([45, 255, 255])
 
-    lower_yellow = np.array([0, 10, 170])
-    upper_yellow = np.array([180, 255, 255])
+    # terrible mask
+    # lower_yellow = np.array([0, 10, 170])
+    # upper_yellow = np.array([180, 255, 255])
 
     mask_blue = cv2.inRange(hsv, lower_blue, upper_blue)
     mask_yellow = cv2.inRange(hsv, lower_yellow, upper_yellow)

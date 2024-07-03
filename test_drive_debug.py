@@ -2,11 +2,11 @@ import cv2
 import numpy as np
 import math
 
-from gpiozero import PhaseEnableMotor
-from gpiozero import AngularServo
-from time import sleep
-from gpiozero.pins.pigpio import PiGPIOFactory
-import pigpio
+# from gpiozero import PhaseEnableMotor
+# from gpiozero import AngularServo
+# from time import sleep
+# from gpiozero.pins.pigpio import PiGPIOFactory
+# import pigpio
 
 SMOOTHING_FACTOR = 0.3
 
@@ -21,29 +21,29 @@ dir1_pin = 19
 servo_pin = 17
 
 # drive setup
-motor1 = PhaseEnableMotor(dir1_pin, pwm1_pin)
-motor2 = PhaseEnableMotor(dir2_pin, pwm2_pin)
-factory = PiGPIOFactory()
-pi = pigpio.pi('soft', 8888)
-servo = AngularServo(servo_pin, min_pulse_width=0.0005, max_pulse_width=0.00255, pin_factory=factory)
+# motor1 = PhaseEnableMotor(dir1_pin, pwm1_pin)
+# motor2 = PhaseEnableMotor(dir2_pin, pwm2_pin)
+# factory = PiGPIOFactory()
+# pi = pigpio.pi('soft', 8888)
+# servo = AngularServo(servo_pin, min_pulse_width=0.0005, max_pulse_width=0.00255, pin_factory=factory)
 
-servo.angle = -3
+# servo.angle = -3
 
 
-def turn(angle):
-    # this is just a random formula to choose speed based on, linearly decreasing speed from some max to 0.1 which is real slow
-    speed = 0.3 - 0.2 * (abs(angle) / 90)
-    angle = (MAX_ANGLE - MIN_ANGLE) / 2 * angle / 70 + STRAIGHT_ANGLE
-    if angle > MAX_ANGLE:
-        angle = MAX_ANGLE
-    elif angle < MIN_ANGLE:
-        angle = MIN_ANGLE
-
-    # these motor directinos might need to be swapped?
-
-    motor1.backward(speed)
-    motor2.forward(speed)
-    servo.angle = angle
+# def turn(angle):
+#     # this is just a random formula to choose speed based on, linearly decreasing speed from some max to 0.1 which is real slow
+#     speed = 0.3 - 0.2 * (abs(angle) / 90)
+#     angle = (MAX_ANGLE - MIN_ANGLE) / 2 * angle / 70 + STRAIGHT_ANGLE
+#     if angle > MAX_ANGLE:
+#         angle = MAX_ANGLE
+#     elif angle < MIN_ANGLE:
+#         angle = MIN_ANGLE
+#
+#     # these motor directinos might need to be swapped?
+#
+#     motor1.backward(speed)
+#     motor2.forward(speed)
+#     servo.angle = angle
 
 
 def extract_edges(frame):
