@@ -5,27 +5,35 @@ import math
 from gpiozero import PhaseEnableMotor
 from gpiozero import AngularServo
 from time import sleep
+from gpiozero.pins.pigpio import PiGPIOFactory
+import pigpio
 
-SMOOTHING_FACTOR = 0.1
 
-MAX_ANGLE = 16
-MIN_ANGLE = -16
+SMOOTHING_FACTOR = 0.3
+
+MAX_ANGLE = 15
+MIN_ANGLE = -18
+STRAIGHT_ANGLE = -3
 
 pwm2_pin = 5
 dir2_pin = 6
 pwm1_pin = 13
 dir1_pin = 19
-servo_pin = 11
+servo_pin = 17
 
 # drive setup
 motor1 = PhaseEnableMotor(dir1_pin, pwm1_pin)
 motor2 = PhaseEnableMotor(dir2_pin, pwm2_pin)
-servo = AngularServo(servo_pin, min_pulse_width=0.0006, max_pulse_width=0.0023)
-servo.angle = 0
+factory = PiGPIOFactory()
+pi = pigpio.pi('soft', 8888)
+servo = AngularServo(servo_pin, min_pulse_width=0.0005, max_pulse_width=0.00255, pin_factory=factory)
+
+servo.angle = -3
 
 def turn(angle) :
     # this is just a random formula to choose speed based on, linearly decreasing speed from some max to 0.1 which is real slow
-    speed = 0.4 - 0.3 * (abs(angle)/90)
+    speed = 0.3 - 0.2 * (abs(angle)/90)
+    angle = (MAX_ANGLE - MIN_ANGLE)/2 * angle/70 + STRAIGHT_ANGLE
     if angle > MAX_ANGLE:
         angle = MAX_ANGLE
     elif angle < MIN_ANGLE:
@@ -33,8 +41,8 @@ def turn(angle) :
     
     # these motor directinos might need to be swapped?
     
-    motor1.forward(speed)
-    motor2.backwards(speed)
+    motor1.backward(speed)
+    motor2.forward(speed)
     servo.angle = angle
 
 
@@ -80,7 +88,7 @@ def detect_line_segments(cropped_edges):
     line_segments = cv2.HoughLinesP(cropped_edges, rho, angle, min_threshold, np.array([]), minLineLength=8, maxLineGap=4)
     try:
         len(line_segments)
-        print("yes")
+        #print("yes")
         return line_segments
     except:
         return []
@@ -104,7 +112,7 @@ def calculate_slope_intercept(frame, line_segments):
 
         # skip vertical line
         if x1 == x2:
-            print("Vertical Line")
+            #print("Vertical Line")
             continue
 
         fit = np.polyfit((x1, x2), (y1, y2), 1)
@@ -149,7 +157,7 @@ def detect_lane(frame):
     line_segments = detect_line_segments(cropped_edges)
 
     if len(line_segments) == 0:
-        print("no lane lines")
+        #print("no lane lines")
         return []
 
     detected_lane = calculate_slope_intercept(frame, line_segments)
@@ -162,7 +170,7 @@ def get_steering_angle(height, width, lane_lines):
     # print(lane_lines[1][0], lane_lines[0][0])
 
     if len(lane_lines) == 2:
-        print("two lines detected")
+        #print("two lines detected")
         _, _, left_x2, _ = lane_lines[0][0]
         _, _, right_x2, _ = lane_lines[1][0]
         mid = int(width / 2)
@@ -171,14 +179,14 @@ def get_steering_angle(height, width, lane_lines):
 
     # one lane line
     elif len(lane_lines) == 1:
-        print("one line detected")
+        #print("one line detected")
         x1, _, x2, _ = lane_lines[0][0]
         x_offset = x2 - x1
         y_offset = int(height / 2)
 
     angle_to_mid_radian = math.atan(x_offset / y_offset)  # angle (in radian) to center vertical line
     angle_to_mid_deg = int(angle_to_mid_radian * 180.0 / math.pi)  # angle (in degrees) to center vertical line
-    steering_angle = angle_to_mid_deg - 90  # this is the steering angle needed by front wheel
+    steering_angle = angle_to_mid_deg  # this is the steering angle needed by front wheel
 
     return steering_angle
 
@@ -225,40 +233,56 @@ def test_video(src):
 
     # how many angles to output per second (camera has 60fps)
     #won't this output 60/sensitivity = 12 per second?
-    sensitivity = 5
+    sensitivity = 6
     frame_counter = 0
 
     while cap.isOpened():
         ret, frame = cap.read()
+        if(ret):
+            frame_counter += 1
+        else:
+            continue
+        if (frame_counter % sensitivity != 0):
+            continue
         height, width, ch = frame.shape
-
+        
         lane_lines = detect_lane(frame)
-        frame_counter += 1
+        
 
         if (frame_counter % sensitivity == 0):
+            print('TEST 1')
+
             if len(lane_lines) > 0:
                 steering_angle = get_steering_angle(height, width, lane_lines)
 
                 # TODO: output steering angles based on sensitivity
                 previous_angle = stabilize_steering(previous_angle, steering_angle)
 
+                print("present angle", steering_angle)
+                print("smoothed angle:", previous_angle)
                 turn(previous_angle)
-                print(steering_angle)
-                print(previous_angle)
+                angle = (MAX_ANGLE - MIN_ANGLE)/2 * previous_angle/70 + STRAIGHT_ANGLE
+                if angle > MAX_ANGLE:
+                    angle = MAX_ANGLE
+                elif angle < MIN_ANGLE:
+                    angle = MIN_ANGLE
+                print("normalised servo angle", angle)
                 # lane_lines_frame = display_lines(frame, lane_lines)
 
                 # if steering_angle is not None:
                 # heading_line_frame = display_heading_line(frame, previous_angle)
                 # cv2.imshow('Test v2', heading_line_frame)
+            # continue
 
 
-        if len(lane_lines) > 0:
-            steering_angle = get_steering_angle(height, width, lane_lines)
+        # if len(lane_lines) > 0:
+        #     #print('TEST')
+        #     steering_angle = get_steering_angle(height, width, lane_lines)
 
-            previous_angle = stabilize_steering(previous_angle, steering_angle)
+        #     previous_angle = stabilize_steering(previous_angle, steering_angle)
 
-            print(steering_angle)
-            print(previous_angle)
+        #     #print(steering_angle)
+        #     #print(previous_angle)
 
         if ret == True:
             # cv2.imshow('Vincent is hot', frame)
