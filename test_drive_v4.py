@@ -247,10 +247,10 @@ def test_video(src):
 
                 print(steering_angle)
                 print(previous_angle)
-                # lane_lines_frame = display_lines(frame, lane_lines)
+                lane_lines_frame = display_lines(frame, lane_lines)
 
                 heading_line_frame = display_heading_line(frame, previous_angle)
-                cv2.imshow('Test v4', binary_mask)
+                cv2.imshow('Test v4', lane_lines_frame)
 
 
         if len(lane_lines) > 0:
@@ -286,4 +286,4 @@ def test_image(src):
     # closing all open windows
     cv2.destroyAllWindows()
 
-test_video("IMG_2060.mov")
+test_video(0)
