@@ -40,7 +40,7 @@ def turn(angle) :
         angle = MAX_ANGLE
     elif angle < MIN_ANGLE:
         angle = MIN_ANGLE
-    
+    print("angle ", angle)
     # these motor directinos might need to be swapped?
     
     motor1.backward(speed)
@@ -49,7 +49,7 @@ def turn(angle) :
 
 
 
-def  (frame):
+def extract_edges(frame):
     # change image to hsv for masking
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
@@ -70,7 +70,7 @@ def  (frame):
     mask_yellow = cv2.inRange(hsv, lower_yellow, upper_yellow)
 
     # get yellow and blue lines
-    mask = mask_blue | mask_yellow
+    mask = mask_blue #| mask_yellow
 
     # extract edges from lines
     edges = cv2.Canny(mask, 200, 400)    # change to contour detection later
@@ -249,8 +249,8 @@ def test_video(src):
 
     # how many angles to output per second (camera has 60fps)
     #won't this output 60/sensitivity = 12 per second?
-    frame_rate = 1 # 10 per second
-    steering_rate = 1 #
+    frame_rate = 2 # 10 per second
+    steering_rate = 8 #
     frame_counter = 0
 
     while cap.isOpened():
@@ -291,10 +291,11 @@ def test_video(src):
                 # cv2.imshow('Test v2', heading_line_frame)
             # continue
         if frame_counter % steering_rate == 0:
-            pass
+            
             print("present angle", steering_angle)
             print("smoothed angle:", previous_angle)
-            #turn(previous_angle)
+            print("frame_counter", frame_counter)
+            turn(previous_angle)
 
         # if len(lane_lines) > 0:
         #     #print('TEST')
