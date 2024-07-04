@@ -228,7 +228,7 @@ def test_video(src):
     frame_counter = 0
 
     while cap.isOpened():
-        input()
+        # input()
         ret, frame = cap.read()
         height, width, ch = frame.shape
 
