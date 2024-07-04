@@ -2,6 +2,49 @@ import cv2
 import numpy as np
 import math
 
+from gpiozero import PhaseEnableMotor
+from gpiozero import AngularServo
+from time import sleep
+from gpiozero.pins.pigpio import PiGPIOFactory
+import pigpio
+
+SMOOTHING_FACTOR = 0.5
+
+MAX_ANGLE = 15
+MIN_ANGLE = -15
+STRAIGHT_ANGLE = 0
+
+pwm2_pin = 5
+dir2_pin = 6
+pwm1_pin = 13
+dir1_pin = 19
+servo_pin = 17
+
+
+# drive setup
+motor1 = PhaseEnableMotor(dir1_pin, pwm1_pin)
+motor2 = PhaseEnableMotor(dir2_pin, pwm2_pin)
+factory = PiGPIOFactory()
+pi = pigpio.pi('soft', 8888)
+servo = AngularServo(servo_pin, min_pulse_width=0.0005, max_pulse_width=0.00255, pin_factory=factory)
+
+servo.angle = 0
+
+
+def turn(angle) :
+    # this is just a random formula to choose speed based on, linearly decreasing speed from some max to 0.1 which is real slow
+    speed = 0.3 - 0.2 * (abs(angle)/90)
+    angle = (MAX_ANGLE - MIN_ANGLE)/2 * angle/70 + STRAIGHT_ANGLE
+    if angle > MAX_ANGLE:
+        angle = MAX_ANGLE
+    elif angle < MIN_ANGLE:
+        angle = MIN_ANGLE
+    print("normalised servo angle", angle)
+    # these motor directinos might need to be swapped?
+    
+    motor1.backward(speed)
+    motor2.forward(speed)
+    servo.angle = angle
 
 def initialize_mask(frame):
     # change image to hsv for masking
@@ -192,7 +235,7 @@ def display_lines(frame, lines, line_color=(0, 255, 0), line_width=5):
     line_image = cv2.addWeighted(frame, 0.8, line_image, 1, 1)
     return line_image
 
-def stabilize_steering(previous_angle, current_angle, previous_weight=0.9, current_weight=0.1):
+def stabilize_steering(previous_angle, current_angle, previous_weight=(1 - SMOOTHING_FACTOR), current_weight=SMOOTHING_FACTOR):
     stabilized_angle = previous_angle * previous_weight + current_angle * current_weight
     return stabilized_angle
 
@@ -227,6 +270,10 @@ def test_video(src):
     sensitivity = 6
     frame_counter = 0
 
+    frame_rate = 2 # 30 per second?
+    steering_rate = 8 #
+    frame_counter = 0
+
     while cap.isOpened():
         # input()
         ret, frame = cap.read()
@@ -238,38 +285,32 @@ def test_video(src):
         cropped_edges_frame = crop_image(edges_frame)
         lane_lines_frame = display_lines(frame, lane_lines)
 
-        cv2.imshow('Test v4 original', frame)
-        cv2.imshow('Test v4 color mask', img_mask)
-        cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
-        cv2.imshow('Test v4 lane lines', lane_lines_frame)
+        # cv2.imshow('Test v4 original', frame)
+        # cv2.imshow('Test v4 color mask', img_mask)
+        # cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
+        # cv2.imshow('Test v4 lane lines', lane_lines_frame)
 
 
         frame_counter += 1
 
-        if (frame_counter % sensitivity == 0):
+        if (frame_counter % frame_rate == 0):
             if len(lane_lines) > 0:
                 steering_angle = get_steering_angle(height, width, lane_lines)
 
                 previous_angle = stabilize_steering(previous_angle, steering_angle)
                 # binary_mask = display_binary_mask(frame, img_mask)
 
-                print("CURRENT", steering_angle)
+                
+
+
+        if(frame_counter % steering_angle == 0):
+                #print("CURRENT", steering_angle)
                 print("STABLIZED", previous_angle)
                 # edges_frame = extract_edges(img_mask)
                 # lane_lines_frame = display_lines(frame, lane_lines)
-
-                heading_line_frame = display_heading_line(frame, previous_angle)
+                turn(previous_angle)
+                #heading_line_frame = display_heading_line(frame, previous_angle)
                 # cv2.imshow('Test v4 angle', heading_line_frame)
-
-
-        if len(lane_lines) > 0:
-            steering_angle = get_steering_angle(height, width, lane_lines)
-
-            previous_angle = stabilize_steering(previous_angle, steering_angle)
-            #
-            # print(steering_angle)
-            # print(previous_angle)
-
         if ret == True:
             # cv2.imshow('Vincent is hot', frame)
 
