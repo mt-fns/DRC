@@ -291,9 +291,9 @@ def test_video(src):
                 print("lane lines", lane_lines)
                 # lane_lines_frame = display_lines(frame, lane_lines)
 
-                # if steering_angle is not None:
-                # heading_line_frame = display_heading_line(frame, previous_angle)
-                # cv2.imshow('Test v2', heading_line_frame)
+                if steering_angle is not None:
+                    heading_line_frame = display_heading_line(frame, previous_angle)
+                    cv2.imshow('Test debug', heading_line_frame)
             # continue
         # if frame_counter % steering_rate == 0:
             # turn(previous_angle)
@@ -332,4 +332,4 @@ def test_image(src):
     cv2.destroyAllWindows()
 
 
-test_video(0)
+test_video("IMG_2066.mov")
