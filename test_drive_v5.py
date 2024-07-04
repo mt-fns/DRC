@@ -8,7 +8,9 @@ from time import sleep
 from gpiozero.pins.pigpio import PiGPIOFactory
 import pigpio
 
-SMOOTHING_FACTOR = 0.5
+import time
+
+SMOOTHING_FACTOR = 0.8
 
 MAX_ANGLE = 15
 MIN_ANGLE = -15
@@ -33,8 +35,11 @@ servo.angle = 0
 
 def turn(angle) :
     # this is just a random formula to choose speed based on, linearly decreasing speed from some max to 0.1 which is real slow
-    speed = 0.3 - 0.2 * (abs(angle)/90)
-    angle = (MAX_ANGLE - MIN_ANGLE)/2 * angle/70 + STRAIGHT_ANGLE
+    leftSpeed = 0.2 + min((angle/60) * 0.15, 0.15) #this means if left angle i.e. negative, motor will turn slower
+    rightSpeed = 0.2 - min((angle/60) * 0.15, 0.15) #this means if right angle i.e. positive motor will turn slower
+    print("left speed rightspeed and angle", leftSpeed, rightSpeed,  angle)
+    speed = 0.25 - 0.1 * (abs(angle)/45)
+    angle = (MAX_ANGLE - MIN_ANGLE)/2 * angle/35 + STRAIGHT_ANGLE
     if angle > MAX_ANGLE:
         angle = MAX_ANGLE
     elif angle < MIN_ANGLE:
@@ -42,8 +47,12 @@ def turn(angle) :
     print("normalised servo angle", angle)
     # these motor directinos might need to be swapped?
     
-    motor1.backward(speed)
-    motor2.forward(speed)
+
+    #turning with wheel speed
+    
+    #motor1 is left
+    motor1.backward(leftSpeed)
+    motor2.forward(rightSpeed)
     servo.angle = angle
 
 def initialize_mask(frame):
@@ -119,7 +128,7 @@ def detect_line_segments(cropped_edges):
     # tuning min_threshold, minLineLength, maxLineGap is a trial and error process by hand
     rho = 1  # distance precision in pixel, i.e. 1 pixel
     angle = np.pi / 180  # angular precision in radian, i.e. 1 degree
-    min_threshold = 20  # minimal of votes
+    min_threshold = 15  # minimal of votes
 
     line_segments = cv2.HoughLinesP(cropped_edges, rho, angle, min_threshold, np.array([]), minLineLength=20, maxLineGap=8)
     try:
@@ -267,16 +276,23 @@ def test_video(src):
     previous_angle = 0
 
     # how many angles to output per second (camera has 60fps)
-    sensitivity = 6
-    frame_counter = 0
 
-    frame_rate = 2 # 30 per second?
-    steering_rate = 8 #
+    frame_rate = 1 # 30 per second?
+    steering_rate = 1 #
     frame_counter = 0
 
     while cap.isOpened():
-        # input()
+        
+
         ret, frame = cap.read()
+        if(ret):
+            frame_counter+=1
+        else: 
+            continue
+        if(frame_counter % frame_rate != 0):
+            continue
+        #start = time.time()
+        #testing processing time
         height, width, ch = frame.shape
 
         img_mask = initialize_mask(frame)
@@ -284,28 +300,31 @@ def test_video(src):
         edges_frame = extract_edges(img_mask)
         cropped_edges_frame = crop_image(edges_frame)
         lane_lines_frame = display_lines(frame, lane_lines)
-
+        #end = time.time()
+        #print("processed in", end - start)
         # cv2.imshow('Test v4 original', frame)
         # cv2.imshow('Test v4 color mask', img_mask)
         # cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
         # cv2.imshow('Test v4 lane lines', lane_lines_frame)
 
 
-        frame_counter += 1
 
         if (frame_counter % frame_rate == 0):
             if len(lane_lines) > 0:
+                #print(frame_counter)
                 steering_angle = get_steering_angle(height, width, lane_lines)
-
+                if(frame_counter % steering_rate == 0):
+                    print("present angle is", steering_angle)
                 previous_angle = stabilize_steering(previous_angle, steering_angle)
                 # binary_mask = display_binary_mask(frame, img_mask)
 
                 
 
 
-        if(frame_counter % steering_angle == 0):
+        if(frame_counter % steering_rate == 0):
                 #print("CURRENT", steering_angle)
                 print("STABLIZED", previous_angle)
+                print("frame counter", frame_counter)
                 # edges_frame = extract_edges(img_mask)
                 # lane_lines_frame = display_lines(frame, lane_lines)
                 turn(previous_angle)
@@ -336,5 +355,5 @@ def test_image(src):
     # closing all open windows
     cv2.destroyAllWindows()
 
-test_video("yellow_lanes3.mp4")
+test_video(0)
 # test_video("IMG_2066.mov")

@@ -295,7 +295,7 @@ def test_video(src):
             print("present angle", steering_angle)
             print("smoothed angle:", previous_angle)
             print("frame_counter", frame_counter)
-            turn(previous_angle)
+            #turn(previous_angle)
 
         # if len(lane_lines) > 0:
         #     #print('TEST')
