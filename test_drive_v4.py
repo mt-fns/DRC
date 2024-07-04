@@ -228,6 +228,7 @@ def test_video(src):
     frame_counter = 0
 
     while cap.isOpened():
+        input()
         ret, frame = cap.read()
         height, width, ch = frame.shape
 
@@ -294,4 +295,5 @@ def test_image(src):
     # closing all open windows
     cv2.destroyAllWindows()
 
-test_video(0)
+test_video("yellow_lanes3.mp4")
+# test_video("IMG_2066.mov")
