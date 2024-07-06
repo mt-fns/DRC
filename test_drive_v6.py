@@ -250,12 +250,12 @@ def test_video(src):
         lane_lines = detect_lane(frame, img_mask)
         # edges_frame = extract_edges(img_mask)
         # cropped_edges_frame = crop_image(edges_frame)
-        lane_lines_frame = display_lines(frame, lane_lines)
+        # lane_lines_frame = display_lines(frame, lane_lines)
 
         # cv2.imshow('Test v4 original', frame)
-        cv2.imshow('Test v4 color mask', img_mask[1])
+        # cv2.imshow('Test v4 color mask', img_mask[1])
         # cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
-        cv2.imshow('Test v4 lane lines', lane_lines_frame)
+        # cv2.imshow('Test v4 lane lines', lane_lines_frame)
 
 
         frame_counter += 1
@@ -272,7 +272,7 @@ def test_video(src):
                 # edges_frame = extract_edges(img_mask)
                 # lane_lines_frame = display_lines(frame, lane_lines)
 
-                heading_line_frame = display_heading_line(frame, previous_angle)
+                # heading_line_frame = display_heading_line(frame, previous_angle)
                 # cv2.imshow('Test v4 angle', heading_line_frame)
 
 
