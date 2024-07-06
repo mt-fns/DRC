@@ -10,18 +10,25 @@ import pigpio
 
 import time
 
-SMOOTHING_FACTOR = 0.8
+SMOOTHING_FACTOR = 0.6
 
 MAX_ANGLE = 15
 MIN_ANGLE = -15
 STRAIGHT_ANGLE = 0
 
-pwm2_pin = 5
-dir2_pin = 6
-pwm1_pin = 13
-dir1_pin = 19
-servo_pin = 17
+#protoboard pins (gpio)
+# pwm2_pin = 5
+# dir2_pin = 6
+# pwm1_pin = 13
+# dir1_pin = 19
+# servo_pin = 17
 
+#pcb pins (gpio)
+pwm2_pin = 25
+dir2_pin = 8
+pwm1_pin = 7
+dir1_pin = 1
+servo_pin = 18
 
 # drive setup
 motor1 = PhaseEnableMotor(dir1_pin, pwm1_pin)
@@ -35,8 +42,17 @@ servo.angle = 0
 
 def turn(angle) :
     # this is just a random formula to choose speed based on, linearly decreasing speed from some max to 0.1 which is real slow
-    leftSpeed = 0.2 + min((angle/60) * 0.15, 0.15) #this means if left angle i.e. negative, motor will turn slower
-    rightSpeed = 0.2 - min((angle/60) * 0.15, 0.15) #this means if right angle i.e. positive motor will turn slower
+
+    mag = (angle/60) * 0.2
+    if(mag < 0):
+        leftSpeed = 0.25 - min((angle/60) * 0.2, 0.2) #this means if left angle i.e. negative, motor will turn slower
+        rightSpeed = 0.25 + min((angle/60) * 0.2, 0.2)
+    elif (mag > 0):
+        leftSpeed = 0.25 + min(abs(mag), 0.2) #this means if left angle i.e. negative, motor will turn slower
+        rightSpeed = 0.25 - min(abs(mag), 0.2)
+
+    # leftSpeed = 0.25 + min((angle/60) * 0.2, 0.2) #this means if left angle i.e. negative, motor will turn slower
+    # rightSpeed = 0.25 - min((angle/60) * 0.2, 0.2) #this means if right angle i.e. positive motor will turn slower
     print("left speed rightspeed and angle", leftSpeed, rightSpeed,  angle)
     speed = 0.25 - 0.1 * (abs(angle)/45)
     angle = (MAX_ANGLE - MIN_ANGLE)/2 * angle/35 + STRAIGHT_ANGLE
@@ -128,7 +144,7 @@ def detect_line_segments(cropped_edges):
     # tuning min_threshold, minLineLength, maxLineGap is a trial and error process by hand
     rho = 1  # distance precision in pixel, i.e. 1 pixel
     angle = np.pi / 180  # angular precision in radian, i.e. 1 degree
-    min_threshold = 15  # minimal of votes
+    min_threshold = 20  # minimal of votes
 
     line_segments = cv2.HoughLinesP(cropped_edges, rho, angle, min_threshold, np.array([]), minLineLength=20, maxLineGap=8)
     try:
@@ -278,7 +294,7 @@ def test_video(src):
     # how many angles to output per second (camera has 60fps)
 
     frame_rate = 1 # 30 per second?
-    steering_rate = 1 #
+    steering_rate = 2 #
     frame_counter = 0
 
     while cap.isOpened():
