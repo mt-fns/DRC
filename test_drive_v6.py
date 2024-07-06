@@ -8,8 +8,8 @@ def initialize_mask(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # get only the blue pixels
-    lower_blue = np.array([90, 120, 0])
-    upper_blue = np.array([150, 255, 255])
+    lower_blue = np.array([90, 50, 70])
+    upper_blue = np.array([128, 255, 255])
 
     # alternative hsv mask
     # lower_yellow = np.array([30, 100, 100])
@@ -22,10 +22,8 @@ def initialize_mask(frame):
     mask_blue = cv2.inRange(hsv, lower_blue, upper_blue)
     mask_yellow = cv2.inRange(hsv, lower_yellow, upper_yellow)
 
-    # get yellow and blue lines
-    mask = cv2.bitwise_xor(mask_blue, mask_yellow)
-
-    return mask
+    # run to separate masks on the images
+    return [mask_blue, mask_yellow]
 
 def extract_edges(mask):
     # extract edges from lines
@@ -143,23 +141,40 @@ def get_end_points(frame, line_fit):
     return [[x1, y1, x2, y2]]
 
 def detect_lane(frame, mask):
-    edges = extract_edges(mask)
-    cropped_edges = crop_image(edges)
-    line_segments = detect_line_segments(cropped_edges)
+    mask_blue = mask[0]
+    mask_yellow = mask[1]
 
-    if len(line_segments) == 0:
+    edges_blue = extract_edges(mask_blue)
+    cropped_edges_blue = crop_image(edges_blue)
+
+    edges_yellow = extract_edges(mask_yellow)
+    cropped_edges_yellow = extract_edges(edges_yellow)
+
+    line_segments_blue = detect_line_segments(cropped_edges_blue)
+    line_segments_yellow = detect_line_segments(cropped_edges_yellow)
+
+    # no lanes
+    if len(line_segments_blue) == 0 and len(line_segments_yellow) == 0:
         # print("no lane lines")
         return []
 
-    detected_lane = calculate_slope_intercept(frame, line_segments)
-    return detected_lane
+    # only yellow
+    elif len(line_segments_blue) == 0:
+        detected_lane = calculate_slope_intercept(frame, line_segments_yellow)
+        return detected_lane
 
+    # only blue
+    elif len(line_segments_yellow) == 0:
+        detected_lane = calculate_slope_intercept(frame, line_segments_blue)
+        return detected_lane
+
+    # both yellow and blue
+    else:
+        detected_lane_yellow = calculate_slope_intercept(frame, line_segments_yellow)
+        detected_lane_blue = calculate_slope_intercept(frame, line_segments_blue)
+        return detected_lane_yellow + detected_lane_blue
 
 def get_steering_angle(height, width, lane_lines):
-    # two lane lines
-    # print(lane_lines.shape)
-    # print(lane_lines[1][0], lane_lines[0][0])
-
     if len(lane_lines) == 2:
         # print("two lines detected")
         _, _, left_x2, _ = lane_lines[0][0]
@@ -233,13 +248,13 @@ def test_video(src):
 
         img_mask = initialize_mask(frame)
         lane_lines = detect_lane(frame, img_mask)
-        edges_frame = extract_edges(img_mask)
-        cropped_edges_frame = crop_image(edges_frame)
+        # edges_frame = extract_edges(img_mask)
+        # cropped_edges_frame = crop_image(edges_frame)
         lane_lines_frame = display_lines(frame, lane_lines)
 
         # cv2.imshow('Test v4 original', frame)
-        cv2.imshow('Test v4 color mask', img_mask)
-        cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
+        cv2.imshow('Test v4 color mask', img_mask[1])
+        # cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
         cv2.imshow('Test v4 lane lines', lane_lines_frame)
 
 
@@ -263,15 +278,9 @@ def test_video(src):
 
         if len(lane_lines) > 0:
             steering_angle = get_steering_angle(height, width, lane_lines)
-
             previous_angle = stabilize_steering(previous_angle, steering_angle)
-            #
-            # print(steering_angle)
-            # print(previous_angle)
 
         if ret == True:
-            # cv2.imshow('Vincent is hot', frame)
-
             if cv2.waitKey(1) == ord('q'):
                 break
 
