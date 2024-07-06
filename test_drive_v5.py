@@ -76,23 +76,22 @@ def initialize_mask(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # get only the blue pixels
-    lower_blue = np.array([60, 40, 40])
-    upper_blue = np.array([150, 255, 255])
+    lower_blue = np.array([90, 50, 70])
+    upper_blue = np.array([128, 255, 255])
 
     # alternative hsv mask
-    lower_yellow = np.array([22, 93, 0])
-    upper_yellow = np.array([45, 255, 255])
+    # lower_yellow = np.array([30, 100, 100])
+    # upper_yellow = np.array([35, 255, 255])
 
-    # lower_yellow = np.array([0, 10, 170])
-    # upper_yellow = np.array([180, 255, 255])
+    # tuned yellow
+    lower_yellow = np.array([15, 60, 136])
+    upper_yellow = np.array([38, 163, 246])
 
     mask_blue = cv2.inRange(hsv, lower_blue, upper_blue)
     mask_yellow = cv2.inRange(hsv, lower_yellow, upper_yellow)
 
-    # get yellow and blue lines
-    mask = mask_blue | mask_yellow
-
-    return mask
+    # run to separate masks on the images
+    return [mask_blue, mask_yellow]
 
 def extract_edges(mask):
     # extract edges from lines
@@ -144,15 +143,14 @@ def detect_line_segments(cropped_edges):
     # tuning min_threshold, minLineLength, maxLineGap is a trial and error process by hand
     rho = 1  # distance precision in pixel, i.e. 1 pixel
     angle = np.pi / 180  # angular precision in radian, i.e. 1 degree
-    min_threshold = 20  # minimal of votes
+    min_threshold = 50  # minimal of votes
 
-    line_segments = cv2.HoughLinesP(cropped_edges, rho, angle, min_threshold, np.array([]), minLineLength=20, maxLineGap=8)
+    line_segments = cv2.HoughLinesP(cropped_edges, rho, angle, min_threshold, np.array([]), minLineLength=20, maxLineGap=2)
     try:
         len(line_segments)
         return line_segments
     except:
         return []
-
 
 def calculate_slope_intercept(frame, line_segments):
     height, width, ch = frame.shape
@@ -217,7 +215,6 @@ def detect_lane(frame, mask):
     line_segments = detect_line_segments(cropped_edges)
 
     if len(line_segments) == 0:
-        # print("no lane lines")
         return []
 
     detected_lane = calculate_slope_intercept(frame, line_segments)
@@ -298,11 +295,10 @@ def test_video(src):
     frame_counter = 0
 
     while cap.isOpened():
-        
-
         ret, frame = cap.read()
+
         if(ret):
-            frame_counter+=1
+            frame_counter += 1
         else: 
             continue
         if(frame_counter % frame_rate != 0):
@@ -313,9 +309,9 @@ def test_video(src):
 
         img_mask = initialize_mask(frame)
         lane_lines = detect_lane(frame, img_mask)
-        edges_frame = extract_edges(img_mask)
-        cropped_edges_frame = crop_image(edges_frame)
-        lane_lines_frame = display_lines(frame, lane_lines)
+        # edges_frame = extract_edges(img_mask)
+        # cropped_edges_frame = crop_image(edges_frame)
+        # lane_lines_frame = display_lines(frame, lane_lines)
         #end = time.time()
         #print("processed in", end - start)
         # cv2.imshow('Test v4 original', frame)
@@ -334,21 +330,18 @@ def test_video(src):
                 previous_angle = stabilize_steering(previous_angle, steering_angle)
                 # binary_mask = display_binary_mask(frame, img_mask)
 
-                
-
-
         if(frame_counter % steering_rate == 0):
                 #print("CURRENT", steering_angle)
                 print("STABLIZED", previous_angle)
                 print("frame counter", frame_counter)
                 # edges_frame = extract_edges(img_mask)
                 # lane_lines_frame = display_lines(frame, lane_lines)
-                turn(previous_angle)
+                # turn(previous_angle)
                 #heading_line_frame = display_heading_line(frame, previous_angle)
                 # cv2.imshow('Test v4 angle', heading_line_frame)
+
         if ret == True:
             # cv2.imshow('Vincent is hot', frame)
-
             if cv2.waitKey(1) == ord('q'):
                 break
 
