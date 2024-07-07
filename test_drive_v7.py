@@ -2,6 +2,13 @@ import cv2
 import numpy as np
 import math
 
+SMOOTHING_FACTOR = 0.6
+
+MAX_ANGLE = 15
+MIN_ANGLE = -15
+STRAIGHT_ANGLE = 0
+
+
 # only called steep corner -> if lane line is passed boundary (1/3 for each), call function
 # if lines are intersecting
 # if 2 lines are detected in one color (and intersecting/close???)
@@ -85,53 +92,52 @@ def detect_line_segments(cropped_edges):
     except:
         return []
 
-# def noise_reduction()
 
-
+# calculate lines slope for one lane
 def calculate_slope_intercept(frame, line_segments):
-    height, width, ch = frame.shape
+    # height, width, ch = frame.shape
     lane_lines = []
+    lines_end_point = []
 
-    left_line = []
-    right_line = []
+    # left_line = []
+    # right_line = []
 
     # bound is 2/3
-    bound = 1/3
-    left_bound = width * (1 - bound)
-    right_bound = width * bound
+    # bound = 1/3
+    # left_bound = width * (1 - bound)
+    # right_bound = width * bound
 
     for line in line_segments:
         # points that make up the line segments
         x1, y1, x2, y2 = line[0]
-
-        # skip vertical line
-        if x1 == x2:
-            # print("Vertical Line")
-            continue
-
+    #
+    #     # skip vertical line
+    #     if x1 == x2:
+    #         # print("Vertical Line")
+    #         continue
+    #
         fit = np.polyfit((x1, x2), (y1, y2), 1)
         slope = fit[0]
         intercept = fit[1]
+        lane_lines.append((slope, intercept))
+    #
+    #     # check if left line is within bounds
+    #     if slope < 0:
+    #         if x1 < left_bound and x2 < left_bound:
+    #             left_line.append((slope, intercept))
+    #     # check if right line is within bounds
+    #     else:
+    #         if x1 > right_bound and x2 > right_bound:
+    #             right_line.append((slope, intercept))
 
-        # check if left line is within bounds
-        if slope < 0:
-            if x1 < left_bound and x2 < left_bound:
-                left_line.append((slope, intercept))
-        # check if right line is within bounds
-        else:
-            if x1 > right_bound and x2 > right_bound:
-                right_line.append((slope, intercept))
+    # left_avg = np.average(left_line, axis=0)
+    # right_avg = np.average(right_line, axis=0)
+    lines_avg = np.average(lane_lines, axis=0)
 
-    left_avg = np.average(left_line, axis=0)
-    right_avg = np.average(right_line, axis=0)
+    if len(lane_lines) > 0:
+        lines_end_point.append(get_end_points(frame, lines_avg))
 
-    if len(left_line) > 0:
-        lane_lines.append(get_end_points(frame, left_avg))
-
-    if len(right_line) > 0:
-        lane_lines.append(get_end_points(frame, right_avg))
-
-    return lane_lines
+    return lines_end_point
 
 # helper function for slope intercept
 def get_end_points(frame, line_fit):
@@ -145,39 +151,21 @@ def get_end_points(frame, line_fit):
     x2 = max(-width, min(2 * width, int((y2 - intercept) / slope)))
     return [[x1, y1, x2, y2]]
 
+# detect lane line of one colour
 def detect_lane(frame, mask):
-    mask_blue = mask[0]
-    mask_yellow = mask[1]
-
-    edges_blue = extract_edges(mask_blue)
-    cropped_edges_blue = crop_image(edges_blue)
-
-    edges_yellow = extract_edges(mask_yellow)
-    cropped_edges_yellow = extract_edges(edges_yellow)
-
-    line_segments_blue = detect_line_segments(cropped_edges_blue)
-    line_segments_yellow = detect_line_segments(cropped_edges_yellow)
+    mask = mask
+    edges = extract_edges(mask)
+    cropped_edges = crop_image(edges)
+    line_segments = detect_line_segments(cropped_edges)
 
     # no lanes
-    if len(line_segments_blue) == 0 and len(line_segments_yellow) == 0:
+    if len(line_segments) == 0:
         # print("no lane lines")
         return []
 
-    # only yellow
-    elif len(line_segments_blue) == 0:
-        detected_lane = calculate_slope_intercept(frame, line_segments_yellow)
-        return detected_lane
-
-    # only blue
-    elif len(line_segments_yellow) == 0:
-        detected_lane = calculate_slope_intercept(frame, line_segments_blue)
-        return detected_lane
-
-    # both yellow and blue
     else:
-        detected_lane_yellow = calculate_slope_intercept(frame, line_segments_yellow)
-        detected_lane_blue = calculate_slope_intercept(frame, line_segments_blue)
-        return detected_lane_yellow + detected_lane_blue
+        detected_lane = calculate_slope_intercept(frame, line_segments)
+        return detected_lane
 
 def get_steering_angle(height, width, lane_lines):
     if len(lane_lines) == 2:
@@ -211,7 +199,7 @@ def display_lines(frame, lines, line_color=(0, 255, 0), line_width=5):
     line_image = cv2.addWeighted(frame, 0.8, line_image, 1, 1)
     return line_image
 
-def stabilize_steering(previous_angle, current_angle, previous_weight=0.9, current_weight=0.1):
+def stabilize_steering(previous_angle, current_angle, previous_weight=(1 - SMOOTHING_FACTOR), current_weight=SMOOTHING_FACTOR):
     stabilized_angle = previous_angle * previous_weight + current_angle * current_weight
     return stabilized_angle
 
@@ -243,32 +231,67 @@ def test_video(src):
     previous_angle = 0
 
     # how many angles to output per second (camera has 60fps)
-    sensitivity = 6
+    frame_rate = 1  # 30 per second?
+    steering_rate = 2  #
     frame_counter = 0
 
+    # change bounds if needed
+    bound = 1 / 2
+
+
     while cap.isOpened():
-        # input()
         ret, frame = cap.read()
         height, width, ch = frame.shape
+        left_bound = width * (1 - bound)
+        right_bound = width * bound
 
         img_mask = initialize_mask(frame)
-        lane_lines = detect_lane(frame, img_mask)
-        edges_frame = extract_edges(img_mask[1])
-        cropped_edges_frame = crop_image(edges_frame)
-        lane_lines_frame = display_lines(frame, lane_lines)
+        lane_lines_yellow = detect_lane(frame, img_mask[1])
+        lane_lines_blue = detect_lane(frame, img_mask[0])
 
-        cv2.imshow('Test v4 original', frame)
-        cv2.imshow('Test v4 color mask', img_mask[0])
-        cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
-        cv2.imshow('Test v4 lane lines', lane_lines_frame)
+        edges_frame = extract_edges(img_mask[0])
+        # cropped_edges_frame = crop_image(edges_frame)
+        lane_lines_yellow_frame = display_lines(frame, lane_lines_yellow)
+        lane_lines_blue_frame = display_lines(frame, lane_lines_blue)
 
+        # cv2.imshow('Test v4 original', frame)
+        cv2.imshow('Test v4 color mask', img_mask[1])
+        # cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
+        cv2.imshow('Test v4 yellow lane lines', lane_lines_yellow_frame)
+        cv2.imshow('Test v4 blue lane lines', lane_lines_blue_frame)
 
         frame_counter += 1
 
-        if (frame_counter % sensitivity == 0):
-            if len(lane_lines) > 0:
+        if (frame_counter % frame_rate == 0):
+            if len(lane_lines_blue) > 0 or len(lane_lines_yellow) > 0:
+                # only yellow frame, check if bang-bang is needed
+                if len(lane_lines_blue) == 0:
+                    steering_angle = get_steering_angle(height, width, lane_lines_yellow)
+                    previous_angle = stabilize_steering(previous_angle, steering_angle)
 
-                pass
+                # only blue frame, check if bang-bang is needed
+                elif len(lane_lines_yellow) == 0:
+                    steering_angle = get_steering_angle(height, width, lane_lines_blue)
+                    previous_angle = stabilize_steering(previous_angle, steering_angle)
+
+
+                # both lane lines
+                else:
+                    lane_lines = lane_lines_yellow + lane_lines_blue
+                    steering_angle = get_steering_angle(height, width, lane_lines)
+                    previous_angle = stabilize_steering(previous_angle, steering_angle)
+
+
+        if (frame_counter % steering_rate == 0):
+            heading_line_frame = display_heading_line(frame, previous_angle + 90)
+            cv2.imshow('Test v7 angle', heading_line_frame)
+            print("STABLIZED", previous_angle)
+            print("frame counter", frame_counter)
+
+        # if (frame_counter % sensitivity == 0):
+        #     if len(lane_lines) > 0:
+        #
+        #         pass
                 # steering_angle = get_steering_angle(height, width, lane_lines)
                 # #
                 # previous_angle = stabilize_steering(previous_angle, steering_angle)
