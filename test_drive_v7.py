@@ -2,13 +2,12 @@ import cv2
 import numpy as np
 import math
 
-from gpiozero import PhaseEnableMotor
+# from gpiozero import PhaseEnableMotor
 from gpiozero import AngularServo
 from gpiozero.pins.pigpio import PiGPIOFactory
 import pigpio
 
 SMOOTHING_FACTOR = 0.6
-
 MAX_ANGLE = 15
 MIN_ANGLE = -15
 STRAIGHT_ANGLE = 0
@@ -21,8 +20,8 @@ dir1_pin = 1
 servo_pin = 18
 
 # drive setup
-motor1 = PhaseEnableMotor(dir1_pin, pwm1_pin)
-motor2 = PhaseEnableMotor(dir2_pin, pwm2_pin)
+# motor1 = PhaseEnableMotor(dir1_pin, pwm1_pin)
+# motor2 = PhaseEnableMotor(dir2_pin, pwm2_pin)
 factory = PiGPIOFactory()
 pi = pigpio.pi('soft', 8888)
 servo = AngularServo(servo_pin, min_pulse_width=0.0005, max_pulse_width=0.00255, pin_factory=factory)
@@ -32,19 +31,19 @@ servo.angle = 0
 def turn(angle):
     # this is just a random formula to choose speed based on, linearly decreasing speed from some max to 0.1 which is real slow
 
-    mag = (angle / 60) * 0.2
-    if (mag < 0):
-        leftSpeed = 0.25 - min((angle / 60) * 0.2,
-                               0.2)  # this means if left angle i.e. negative, motor will turn slower
-        rightSpeed = 0.25 + min((angle / 60) * 0.2, 0.2)
-    elif (mag > 0):
-        leftSpeed = 0.25 + min(abs(mag), 0.2)  # this means if left angle i.e. negative, motor will turn slower
-        rightSpeed = 0.25 - min(abs(mag), 0.2)
+    # mag = (angle / 60) * 0.2
+    # if (mag < 0):
+    #     leftSpeed = 0.25 - min((angle / 60) * 0.2,
+    #                            0.2)  # this means if left angle i.e. negative, motor will turn slower
+    #     rightSpeed = 0.25 + min((angle / 60) * 0.2, 0.2)
+    # elif (mag > 0):
+    #     leftSpeed = 0.25 + min(abs(mag), 0.2)  # this means if left angle i.e. negative, motor will turn slower
+    #     rightSpeed = 0.25 - min(abs(mag), 0.2)
 
     # leftSpeed = 0.25 + min((angle/60) * 0.2, 0.2) #this means if left angle i.e. negative, motor will turn slower
     # rightSpeed = 0.25 - min((angle/60) * 0.2, 0.2) #this means if right angle i.e. positive motor will turn slower
-    print("left speed rightspeed and angle", leftSpeed, rightSpeed, angle)
-    speed = 0.25 - 0.1 * (abs(angle) / 45)
+    # print("left speed rightspeed and angle", leftSpeed, rightSpeed, angle)
+    # speed = 0.25 - 0.1 * (abs(angle) / 45)
     angle = (MAX_ANGLE - MIN_ANGLE) / 2 * angle / 35 + STRAIGHT_ANGLE
     if angle > MAX_ANGLE:
         angle = MAX_ANGLE
@@ -56,8 +55,8 @@ def turn(angle):
     # turning with wheel speed
 
     # motor1 is left
-    motor1.backward(leftSpeed)
-    motor2.forward(rightSpeed)
+    # motor1.backward(leftSpeed)
+    # motor2.forward(rightSpeed)
     servo.angle = angle
 
 
@@ -303,13 +302,13 @@ def test_video(src):
 
         # edges_frame = extract_edges(img_mask[0])
         # cropped_edges_frame = crop_image(edges_frame)
-        # lane_lines_yellow_frame = display_lines(frame, lane_lines_yellow)
+        lane_lines_yellow_frame = display_lines(frame, lane_lines_yellow)
         # lane_lines_blue_frame = display_lines(frame, lane_lines_blue)
 
-        # cv2.imshow('Test v4 original', frame)
-        # cv2.imshow('Test v4 color mask', img_mask[1])
+        cv2.imshow('Test v4 original', frame)
+        cv2.imshow('Test v4 color mask', img_mask[1])
         # cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
-        # cv2.imshow('Test v4 yellow lane lines', lane_lines_yellow_frame)
+        cv2.imshow('Test v4 yellow lane lines', lane_lines_yellow_frame)
         # cv2.imshow('Test v4 blue lane lines', lane_lines_blue_frame)
 
         frame_counter += 1
@@ -335,8 +334,8 @@ def test_video(src):
                 print("present angle is", steering_angle)
 
             # no lane lines, set steering to zero
-            else:
-                previous_angle = stabilize_steering(previous_angle, 0)
+            # else:
+            #     previous_angle = stabilize_steering(previous_angle, 0)
 
 
         if (frame_counter % steering_rate == 0):
