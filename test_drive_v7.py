@@ -2,11 +2,63 @@ import cv2
 import numpy as np
 import math
 
+from gpiozero import PhaseEnableMotor
+from gpiozero import AngularServo
+from gpiozero.pins.pigpio import PiGPIOFactory
+import pigpio
+
 SMOOTHING_FACTOR = 0.6
 
 MAX_ANGLE = 15
 MIN_ANGLE = -15
 STRAIGHT_ANGLE = 0
+
+#pcb pins (gpio)
+pwm2_pin = 25
+dir2_pin = 8
+pwm1_pin = 7
+dir1_pin = 1
+servo_pin = 18
+
+# drive setup
+motor1 = PhaseEnableMotor(dir1_pin, pwm1_pin)
+motor2 = PhaseEnableMotor(dir2_pin, pwm2_pin)
+factory = PiGPIOFactory()
+pi = pigpio.pi('soft', 8888)
+servo = AngularServo(servo_pin, min_pulse_width=0.0005, max_pulse_width=0.00255, pin_factory=factory)
+
+servo.angle = 0
+
+def turn(angle):
+    # this is just a random formula to choose speed based on, linearly decreasing speed from some max to 0.1 which is real slow
+
+    mag = (angle / 60) * 0.2
+    if (mag < 0):
+        leftSpeed = 0.25 - min((angle / 60) * 0.2,
+                               0.2)  # this means if left angle i.e. negative, motor will turn slower
+        rightSpeed = 0.25 + min((angle / 60) * 0.2, 0.2)
+    elif (mag > 0):
+        leftSpeed = 0.25 + min(abs(mag), 0.2)  # this means if left angle i.e. negative, motor will turn slower
+        rightSpeed = 0.25 - min(abs(mag), 0.2)
+
+    # leftSpeed = 0.25 + min((angle/60) * 0.2, 0.2) #this means if left angle i.e. negative, motor will turn slower
+    # rightSpeed = 0.25 - min((angle/60) * 0.2, 0.2) #this means if right angle i.e. positive motor will turn slower
+    print("left speed rightspeed and angle", leftSpeed, rightSpeed, angle)
+    speed = 0.25 - 0.1 * (abs(angle) / 45)
+    angle = (MAX_ANGLE - MIN_ANGLE) / 2 * angle / 35 + STRAIGHT_ANGLE
+    if angle > MAX_ANGLE:
+        angle = MAX_ANGLE
+    elif angle < MIN_ANGLE:
+        angle = MIN_ANGLE
+    print("normalised servo angle", angle)
+    # these motor directinos might need to be swapped?
+
+    # turning with wheel speed
+
+    # motor1 is left
+    motor1.backward(leftSpeed)
+    motor2.forward(rightSpeed)
+    servo.angle = angle
 
 
 # only called steep corner -> if lane line is passed boundary (1/3 for each), call function
@@ -236,29 +288,29 @@ def test_video(src):
     frame_counter = 0
 
     # change bounds if needed
-    bound = 1 / 2
+    # bound = 1 / 2
 
 
     while cap.isOpened():
         ret, frame = cap.read()
         height, width, ch = frame.shape
-        left_bound = width * (1 - bound)
-        right_bound = width * bound
+        # left_bound = width * (1 - bound)
+        # right_bound = width * bound
 
         img_mask = initialize_mask(frame)
         lane_lines_yellow = detect_lane(frame, img_mask[1])
         lane_lines_blue = detect_lane(frame, img_mask[0])
 
-        edges_frame = extract_edges(img_mask[0])
+        # edges_frame = extract_edges(img_mask[0])
         # cropped_edges_frame = crop_image(edges_frame)
-        lane_lines_yellow_frame = display_lines(frame, lane_lines_yellow)
-        lane_lines_blue_frame = display_lines(frame, lane_lines_blue)
+        # lane_lines_yellow_frame = display_lines(frame, lane_lines_yellow)
+        # lane_lines_blue_frame = display_lines(frame, lane_lines_blue)
 
         # cv2.imshow('Test v4 original', frame)
-        cv2.imshow('Test v4 color mask', img_mask[1])
+        # cv2.imshow('Test v4 color mask', img_mask[1])
         # cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
-        cv2.imshow('Test v4 yellow lane lines', lane_lines_yellow_frame)
-        cv2.imshow('Test v4 blue lane lines', lane_lines_blue_frame)
+        # cv2.imshow('Test v4 yellow lane lines', lane_lines_yellow_frame)
+        # cv2.imshow('Test v4 blue lane lines', lane_lines_blue_frame)
 
         frame_counter += 1
 
@@ -274,45 +326,24 @@ def test_video(src):
                     steering_angle = get_steering_angle(height, width, lane_lines_blue)
                     previous_angle = stabilize_steering(previous_angle, steering_angle)
 
-
                 # both lane lines
                 else:
                     lane_lines = lane_lines_yellow + lane_lines_blue
                     steering_angle = get_steering_angle(height, width, lane_lines)
                     previous_angle = stabilize_steering(previous_angle, steering_angle)
 
+                print("present angle is", steering_angle)
 
         if (frame_counter % steering_rate == 0):
-            heading_line_frame = display_heading_line(frame, previous_angle + 90)
-            cv2.imshow('Test v7 angle', heading_line_frame)
+            # heading_line_frame = display_heading_line(frame, previous_angle + 90)
+            turn(previous_angle)
+            # cv2.imshow('Test v7 angle', heading_line_frame)
             print("STABLIZED", previous_angle)
             print("frame counter", frame_counter)
-
-        # if (frame_counter % sensitivity == 0):
-        #     if len(lane_lines) > 0:
-        #
-        #         pass
-                # steering_angle = get_steering_angle(height, width, lane_lines)
-                # #
-                # previous_angle = stabilize_steering(previous_angle, steering_angle)
-                # binary_mask = display_binary_mask(frame, img_mask)
-
-                # print("CURRENT", steering_angle)
-                # print("STABLIZED", previous_angle)
-                # edges_frame = extract_edges(img_mask)
-                # lane_lines_frame = display_lines(frame, lane_lines)
-
-                # heading_line_frame = display_heading_line(frame, previous_angle + 90)
-                # cv2.imshow('Test v4 angle', heading_line_frame)
-
-        # if len(lane_lines) > 0:
-        #     steering_angle = get_steering_angle(height, width, lane_lines)
-        #     previous_angle = stabilize_steering(previous_angle, steering_angle)
 
         if ret == True:
             if cv2.waitKey(1) == ord('q'):
                 break
-
         else:
             break
 
