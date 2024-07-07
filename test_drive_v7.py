@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import math
 
-# from gpiozero import PhaseEnableMotor
+from gpiozero import PhaseEnableMotor
 from gpiozero import AngularServo
 from gpiozero.pins.pigpio import PiGPIOFactory
 import pigpio
