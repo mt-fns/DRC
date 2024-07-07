@@ -336,7 +336,7 @@ def test_video(src):
 
         if (frame_counter % steering_rate == 0):
             # heading_line_frame = display_heading_line(frame, previous_angle + 90)
-            turn(previous_angle)
+            # turn(previous_angle)
             # cv2.imshow('Test v7 angle', heading_line_frame)
             print("STABLIZED", previous_angle)
             print("frame counter", frame_counter)
