@@ -67,33 +67,61 @@ servo_pin = 18
 #     servo.angle = angle
 
 
-# only called steep corner -> if lane line is passed boundary (1/3 for each), call function
-# if lines are intersecting
-# if 2 lines are detected in one color (and intersecting/close???)
-def bang_bang_control(direction):
-    pass
+# determine to steer right or left
+# called when object collision is detected
+# steer a fixed amount at a fixed speed
+def bang_bang_steering(frame, bbox):
+    _, width, _ = frame.shape
+
+    x_min = bbox[0][0]
+    x_max = bbox[1][0]
+
+    x_center = (x_min + x_max) / 2
+    frame_center = width / 2
+
+    # error: no coordinates detected
+    if x_center == 0:
+        return
+
+    # note: (0, 0) in opencv is top left
+    if x_center < frame_center:
+        # TODO: TURN RIGHT AT FIXED SPEED + ANGLE
+        # turn()
+        pass
+
+    if x_center > frame_center:
+        # TODO: TURN LEFT AT FIXED SPEED + ANGLE
+        # turn()
+        pass
+
 
 def initialize_mask(frame):
     # change image to hsv for masking
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    # get only the blue pixels
+    # TODO: Change hsv values for object/lane masks
+    # object detection mask
+    lower_purple = np.array([120, 75, 40])
+    upper_purple = np.array([160, 255, 255])
+
+    # blue lane line mask
     lower_blue = np.array([90, 50, 70])
     upper_blue = np.array([128, 255, 255])
 
-    # alternative hsv mask
+    # alternative yellow mask
     # lower_yellow = np.array([30, 100, 100])
     # upper_yellow = np.array([35, 255, 255])
 
-    # tuned yellow
+    # yellow lane line mask
     lower_yellow = np.array([15, 60, 136])
     upper_yellow = np.array([38, 163, 246])
 
     mask_blue = cv2.inRange(hsv, lower_blue, upper_blue)
     mask_yellow = cv2.inRange(hsv, lower_yellow, upper_yellow)
+    mask_purple = cv2.inRange(hsv, lower_purple, upper_purple)
 
     # run to separate masks on the images
-    return [mask_blue, mask_yellow]
+    return [mask_blue, mask_yellow, mask_purple]
 
 def extract_edges(mask):
     # extract edges from lines
@@ -157,39 +185,15 @@ def calculate_slope_intercept(frame, line_segments):
     lane_lines = []
     lines_end_point = []
 
-    # left_line = []
-    # right_line = []
-
-    # bound is 2/3
-    # bound = 1/3
-    # left_bound = width * (1 - bound)
-    # right_bound = width * bound
-
     for line in line_segments:
         # points that make up the line segments
         x1, y1, x2, y2 = line[0]
-    #
-    #     # skip vertical line
-    #     if x1 == x2:
-    #         # print("Vertical Line")
-    #         continue
-    #
+
         fit = np.polyfit((x1, x2), (y1, y2), 1)
         slope = fit[0]
         intercept = fit[1]
         lane_lines.append((slope, intercept))
-    #
-    #     # check if left line is within bounds
-    #     if slope < 0:
-    #         if x1 < left_bound and x2 < left_bound:
-    #             left_line.append((slope, intercept))
-    #     # check if right line is within bounds
-    #     else:
-    #         if x1 > right_bound and x2 > right_bound:
-    #             right_line.append((slope, intercept))
 
-    # left_avg = np.average(left_line, axis=0)
-    # right_avg = np.average(right_line, axis=0)
     lines_avg = np.average(lane_lines, axis=0)
 
     if len(lane_lines) > 0:
@@ -224,6 +228,63 @@ def detect_lane(frame, mask):
     else:
         detected_lane = calculate_slope_intercept(frame, line_segments)
         return detected_lane
+
+def preprocess_mask(mask):
+    # Apply morphological operations to clean up the mask
+    kernel = np.ones((5, 5), np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    return mask
+
+def get_contours(edges):
+    contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    return contours
+
+# returns bounding box coordinates of object
+def detect_object(mask):
+    max_bbox_area = 0
+
+    # get rid of noise before detecting contours
+    cleaned_mask = preprocess_mask(mask)
+    edges = extract_edges(cleaned_mask)
+    contours = get_contours(edges)
+
+    x_max = 0
+    y_max = 0
+    h_max = 0
+    w_max = 0
+
+    # get largest bbox
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)
+        if w * h > max_bbox_area:
+            max_bbox_area = w * h
+            x_max = x
+            y_max = y
+            w_max = w
+            h_max = h
+
+    obstacle = [(x_max, y_max), (x_max + w_max, y_max + h_max)]
+    return obstacle
+
+# determine whether object will collide with current trajectory
+def is_colliding(frame, bbox):
+    height, width, ch = frame.shape
+
+    # if object is in the middle 1/3 of the screen, collision may occur
+    w_bound_left = width * 1/3
+    w_bound_right = width * 2/3
+
+    x_min = bbox[0][0]
+    x_max = bbox[1][0]
+
+    # no obstacles/obstacles are out of bounds
+    if x_min == 0 and x_max == 0:
+        return False
+
+    # obstacles are in bound for collision
+    elif (w_bound_right > x_min > w_bound_left) or (w_bound_left < x_max < w_bound_right):
+        return True
 
 def get_steering_angle(height, width, lane_lines):
     if len(lane_lines) == 2:
@@ -304,19 +365,22 @@ def test_video(src):
         # right_bound = width * bound
 
         img_mask = initialize_mask(frame)
-        lane_lines_yellow = detect_lane(frame, img_mask[1]);'/'
+        lane_lines_yellow = detect_lane(frame, img_mask[1])
         lane_lines_blue = detect_lane(frame, img_mask[0])
 
-        edges_frame = extract_edges(img_mask[1])
-        cropped_edges_frame = crop_image(edges_frame)
-        lane_lines_yellow_frame = display_lines(frame, lane_lines_yellow)
-        lane_lines_blue_frame = display_lines(frame, lane_lines_blue)
+        # img_mask[2] is the object mask, detect object returns object bounding box coordinates
+        object_purple = detect_object(img_mask[2])
 
-        cv2.imshow('Test v4 original', frame)
-        cv2.imshow('Test v4 color mask', img_mask[1])
-        cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
-        cv2.imshow('Test v4 yellow lane lines', lane_lines_yellow_frame)
-        cv2.imshow('Test v4 blue lane lines', lane_lines_blue_frame)
+        # edges_frame = extract_edges(img_mask[1])
+        # cropped_edges_frame = crop_image(edges_frame)
+        # lane_lines_yellow_frame = display_lines(frame, lane_lines_yellow)
+        # lane_lines_blue_frame = display_lines(frame, lane_lines_blue)
+
+        # cv2.imshow('Test v4 original', frame)
+        # cv2.imshow('Test v4 color mask', img_mask[1])
+        # cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
+        # cv2.imshow('Test v4 yellow lane lines', lane_lines_yellow_frame)
+        # cv2.imshow('Test v4 blue lane lines', lane_lines_blue_frame)
 
         frame_counter += 1
 
@@ -352,6 +416,12 @@ def test_video(src):
             # heading_line_frame = display_heading_line(frame, previous_angle + 90)
             # turn(previous_angle, False)
             # cv2.imshow('Test v7 angle', heading_line_frame)
+
+            if (is_colliding(frame, object_purple)):
+                # TODO: Tune bang-bang steering speed/angle
+                bang_bang_steering(frame, object_purple)
+                continue
+
             print("STABLIZED", previous_angle)
             print("frame counter", frame_counter)
 
