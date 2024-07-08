@@ -31,40 +31,28 @@ servo_pin = 18
 # def turn(angle, dontTurn):
 #     if(dontTurn):
 #         servo.angle = STRAIGHT_ANGLE
-#         motor1.forward(0.25)
-#         motor2.backward(0.25)
+#         motor1.forward(NO_ANGLE_SPEED)
+#         motor2.backward(NO_ANGLE_SPEED)
 #         return
 #
-#
 #     # this is just a random formula to choose speed based on, linearly decreasing speed from some max to 0.1 which is real slow
-#     mag = (angle / 60) * 0.2
+#     turn_dif = min(abs((angle / 60)) * TURNING_SPEED_DIF, TURNING_SPEED_DIF)
 #     leftSpeed = 0
 #     rightSpeed = 0
-#     if (mag < 0):
-#         leftSpeed = 0.35 - min(abs((angle / 60)) * 0.25, 0.25)  # this means if left angle i.e. negative, motor will turn slower
-#         rightSpeed = 0.35 + min(abs((angle / 60)) * 0.25, 0.25)
-#     elif (mag > 0):
-#         leftSpeed = 0.35 + min(abs(mag), 0.25)  # this means if left angle i.e. negative, motor will turn slower
-#         rightSpeed = 0.35 - min(abs(mag), 0.25)
+#     if (angle < 0):
+#         leftSpeed = STRAIGHT_SPEED - turn_dif  # this means if left angle i.e. negative, motor will turn slower
+#         rightSpeed = STRAIGHT_SPEED + turn_dif
+#     elif (angle > 0):
+#         leftSpeed = STRAIGHT_SPEED + turn_dif  # this means if left angle i.e. negative, motor will turn slower
+#         rightSpeed = STRAIGHT_SPEED - turn_dif
 #
-#     # leftSpeed = 0.2 + min((angle/60) * 0.15, 0.15) #this means if left angle i.e. negative, motor will turn slower
-#     # rightSpeed = 0.2 - min((angle/60) * 0.15, 0.15) #this means if right angle i.e. positive motor will turn slower
-#     print("left speed rightspeed and angle", leftSpeed, rightSpeed, angle)
-#     # speed = 0.25 - 0.1 * (abs(angle) / 45)
+#
 #     angle = ((MAX_ANGLE - MIN_ANGLE) / 2) * (angle / 45) + STRAIGHT_ANGLE
 #     if angle > MAX_ANGLE:
 #         angle = MAX_ANGLE
 #     elif angle < MIN_ANGLE:
 #         angle = MIN_ANGLE
 #     print("normalised servo angle", angle)
-#     # these motor directinos might need to be swapped?
-#
-#     # turning with wheel speed
-#
-#     # motor1 is left
-#     motor1.forward(rightSpeed)
-#     motor2.backward(leftSpeed)
-#     servo.angle = angle
 
 
 # determine to steer right or left
@@ -404,23 +392,21 @@ def test_video(src):
 
                 print("present angle is", steering_angle)
             # no lane lines
-            # else:
-            #     turn(0, True)
-
-            # no lane lines, set steering to zero
-            # else:
-            #     previous_angle = stabilize_steering(previous_angle, 0)
+            else:
+                steering_angle = 0
+                previous_angle = stabilize_steering(previous_angle, steering_angle)
 
 
         if (frame_counter % steering_rate == 0):
-            # heading_line_frame = display_heading_line(frame, previous_angle + 90)
-            # turn(previous_angle, False)
-            # cv2.imshow('Test v7 angle', heading_line_frame)
-
+            # bang bang steering for obstacle avoidance
             if (is_colliding(frame, object_purple)):
                 # TODO: Tune bang-bang steering speed/angle
                 bang_bang_steering(frame, object_purple)
                 continue
+
+            # heading_line_frame = display_heading_line(frame, previous_angle + 90)
+            # turn(previous_angle, False)
+            # cv2.imshow('Test v7 angle', heading_line_frame)
 
             print("STABLIZED", previous_angle)
             print("frame counter", frame_counter)
