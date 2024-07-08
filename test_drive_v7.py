@@ -30,7 +30,7 @@ servo.angle = 0
 
 def turn(angle, dontTurn):
     if(dontTurn):
-        servo.angle = 0
+        servo.angle = STRAIGHT_ANGLE
         motor1.forward(0.25)
         motor2.backward(0.25)
         return
@@ -339,6 +339,9 @@ def test_video(src):
                     previous_angle = stabilize_steering(previous_angle, steering_angle)
 
                 print("present angle is", steering_angle)
+            # no lane lines
+            else:
+                turn(0, True)
 
             # no lane lines, set steering to zero
             # else:
@@ -346,8 +349,8 @@ def test_video(src):
 
 
         if (frame_counter % steering_rate == 0):
-            heading_line_frame = display_heading_line(frame, previous_angle + 90)
-            turn(previous_angle)
+            # heading_line_frame = display_heading_line(frame, previous_angle + 90)
+            turn(previous_angle, False)
             # cv2.imshow('Test v7 angle', heading_line_frame)
             print("STABLIZED", previous_angle)
             print("frame counter", frame_counter)
