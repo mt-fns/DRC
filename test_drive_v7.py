@@ -8,9 +8,12 @@ from gpiozero.pins.pigpio import PiGPIOFactory
 import pigpio
 
 SMOOTHING_FACTOR = 0.6
-MAX_ANGLE = 22
+MAX_ANGLE = 23
 MIN_ANGLE = -15
 STRAIGHT_ANGLE = 8
+STRAIGHT_SPEED = 0.4
+TURNING_SPEED_DIF = 0.35
+NO_ANGLE_SPEED = 0.3
 
 #pcb pins (gpio)
 pwm2_pin = 25
@@ -26,37 +29,42 @@ factory = PiGPIOFactory()
 pi = pigpio.pi('soft', 8888)
 servo = AngularServo(servo_pin, min_pulse_width=0.0005, max_pulse_width=0.00255, pin_factory=factory)
 
-servo.angle = 0
+servo.angle = STRAIGHT_ANGLE
 
 def turn(angle, dontTurn):
     if(dontTurn):
         servo.angle = STRAIGHT_ANGLE
-        motor1.forward(0.25)
-        motor2.backward(0.25)
+        motor1.forward(NO_ANGLE_SPEED)
+        motor2.backward(NO_ANGLE_SPEED)
         return
 
-
     # this is just a random formula to choose speed based on, linearly decreasing speed from some max to 0.1 which is real slow
-    mag = (angle / 60) * 0.2
+    turn_dif = min(abs((angle / 60)) * TURNING_SPEED_DIF, TURNING_SPEED_DIF)
     leftSpeed = 0
     rightSpeed = 0
-    if (mag < 0):
-        leftSpeed = 0.35 - min(abs((angle / 60)) * 0.25, 0.25)  # this means if left angle i.e. negative, motor will turn slower
-        rightSpeed = 0.35 + min(abs((angle / 60)) * 0.25, 0.25)
-    elif (mag > 0):
-        leftSpeed = 0.35 + min(abs(mag), 0.25)  # this means if left angle i.e. negative, motor will turn slower
-        rightSpeed = 0.35 - min(abs(mag), 0.25)
+    if (angle < 0):
+        leftSpeed = STRAIGHT_SPEED - turn_dif  # this means if left angle i.e. negative, motor will turn slower
+        rightSpeed = STRAIGHT_SPEED + turn_dif
+    elif (angle > 0):
+        leftSpeed = STRAIGHT_SPEED + turn_dif  # this means if left angle i.e. negative, motor will turn slower
+        rightSpeed = STRAIGHT_SPEED - turn_dif
 
-    # leftSpeed = 0.2 + min((angle/60) * 0.15, 0.15) #this means if left angle i.e. negative, motor will turn slower
-    # rightSpeed = 0.2 - min((angle/60) * 0.15, 0.15) #this means if right angle i.e. positive motor will turn slower
-    print("left speed rightspeed and angle", leftSpeed, rightSpeed, angle)
-    # speed = 0.25 - 0.1 * (abs(angle) / 45)
+
     angle = ((MAX_ANGLE - MIN_ANGLE) / 2) * (angle / 45) + STRAIGHT_ANGLE
     if angle > MAX_ANGLE:
         angle = MAX_ANGLE
     elif angle < MIN_ANGLE:
         angle = MIN_ANGLE
     print("normalised servo angle", angle)
+
+
+
+
+    # leftSpeed = 0.2 + min((angle/60) * 0.15, 0.15) #this means if left angle i.e. negative, motor will turn slower
+    # rightSpeed = 0.2 - min((angle/60) * 0.15, 0.15) #this means if right angle i.e. positive motor will turn slower
+    print("left speed rightspeed and angle", leftSpeed, rightSpeed, angle)
+    # speed = 0.25 - 0.1 * (abs(angle) / 45)
+    
     # these motor directinos might need to be swapped?
 
     # turning with wheel speed
@@ -125,8 +133,8 @@ def crop_image(edges):
 
     # only focus bottom half of the screen
     polygon = np.array([[
-        (0, height * 1 / 2),
-        (width, height * 1 / 2),
+        (0, height * 0.4),
+        (width, height * 0.4),
         (width, height),
         (0, height),
     ]], np.int32)
@@ -341,14 +349,16 @@ def test_video(src):
                 print("present angle is", steering_angle)
             # no lane lines
             else:
-                turn(0, True)
-
+                steering_angle = 0
+                previous_angle = stabilize_steering(previous_angle, steering_angle)
+            
             # no lane lines, set steering to zero
             # else:
             #     previous_angle = stabilize_steering(previous_angle, 0)
 
 
         if (frame_counter % steering_rate == 0):
+
             # heading_line_frame = display_heading_line(frame, previous_angle + 90)
             turn(previous_angle, False)
             # cv2.imshow('Test v7 angle', heading_line_frame)
