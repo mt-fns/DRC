@@ -2,85 +2,98 @@ import cv2
 import numpy as np
 import math
 
-from gpiozero import PhaseEnableMotor
-from gpiozero import AngularServo
-from gpiozero.pins.pigpio import PiGPIOFactory
-import pigpio
+# ACTUAL ZERO IS (+5)
 
+# from gpiozero import PhaseEnableMotor
+# from gpiozero import AngularServo
+# from gpiozero.pins.pigpio import PiGPIOFactory
+# import pigpio
+#
 SMOOTHING_FACTOR = 0.6
 MAX_ANGLE = 15
 MIN_ANGLE = -15
 STRAIGHT_ANGLE = 0
+#
+# #pcb pins (gpio)
+# pwm2_pin = 25
+# dir2_pin = 8
+# pwm1_pin = 7
+# dir1_pin = 1
+# servo_pin = 18
+#
+# # drive setup
+# # motor1 = PhaseEnableMotor(dir1_pin, pwm1_pin)
+# # motor2 = PhaseEnableMotor(dir2_pin, pwm2_pin)
+# factory = PiGPIOFactory()
+# pi = pigpio.pi('soft', 8888)
+# servo = AngularServo(servo_pin, min_pulse_width=0.0005, max_pulse_width=0.00255, pin_factory=factory)
+#
+# servo.angle = 0
 
-#pcb pins (gpio)
-pwm2_pin = 25
-dir2_pin = 8
-pwm1_pin = 7
-dir1_pin = 1
-servo_pin = 18
-
-# drive setup
-# motor1 = PhaseEnableMotor(dir1_pin, pwm1_pin)
-# motor2 = PhaseEnableMotor(dir2_pin, pwm2_pin)
-factory = PiGPIOFactory()
-pi = pigpio.pi('soft', 8888)
-servo = AngularServo(servo_pin, min_pulse_width=0.0005, max_pulse_width=0.00255, pin_factory=factory)
-
-servo.angle = 0
-
-def turn(angle):
-    # this is just a random formula to choose speed based on, linearly decreasing speed from some max to 0.1 which is real slow
-
-    # mag = (angle / 60) * 0.2
-    # if (mag < 0):
-    #     leftSpeed = 0.25 - min((angle / 60) * 0.2,
-    #                            0.2)  # this means if left angle i.e. negative, motor will turn slower
-    #     rightSpeed = 0.25 + min((angle / 60) * 0.2, 0.2)
-    # elif (mag > 0):
-    #     leftSpeed = 0.25 + min(abs(mag), 0.2)  # this means if left angle i.e. negative, motor will turn slower
-    #     rightSpeed = 0.25 - min(abs(mag), 0.2)
-
-    # leftSpeed = 0.25 + min((angle/60) * 0.2, 0.2) #this means if left angle i.e. negative, motor will turn slower
-    # rightSpeed = 0.25 - min((angle/60) * 0.2, 0.2) #this means if right angle i.e. positive motor will turn slower
-    # print("left speed rightspeed and angle", leftSpeed, rightSpeed, angle)
-    # speed = 0.25 - 0.1 * (abs(angle) / 45)
-    angle = (MAX_ANGLE - MIN_ANGLE) / 2 * angle / 35 + STRAIGHT_ANGLE
-    if angle > MAX_ANGLE:
-        angle = MAX_ANGLE
-    elif angle < MIN_ANGLE:
-        angle = MIN_ANGLE
-    print("normalised servo angle", angle)
-    # these motor directinos might need to be swapped?
-
-    # turning with wheel speed
-
-    # motor1 is left
-    # motor1.backward(leftSpeed)
-    # motor2.forward(rightSpeed)
-    servo.angle = angle
+# def turn(angle):
+#     # this is just a random formula to choose speed based on, linearly decreasing speed from some max to 0.1 which is real slow
+#
+#     # mag = (angle / 60) * 0.2
+#     # if (mag < 0):
+#     #     leftSpeed = 0.25 - min((angle / 60) * 0.2,
+#     #                            0.2)  # this means if left angle i.e. negative, motor will turn slower
+#     #     rightSpeed = 0.25 + min((angle / 60) * 0.2, 0.2)
+#     # elif (mag > 0):
+#     #     leftSpeed = 0.25 + min(abs(mag), 0.2)  # this means if left angle i.e. negative, motor will turn slower
+#     #     rightSpeed = 0.25 - min(abs(mag), 0.2)
+#
+#     # leftSpeed = 0.25 + min((angle/60) * 0.2, 0.2) #this means if left angle i.e. negative, motor will turn slower
+#     # rightSpeed = 0.25 - min((angle/60) * 0.2, 0.2) #this means if right angle i.e. positive motor will turn slower
+#     # print("left speed rightspeed and angle", leftSpeed, rightSpeed, angle)
+#     # speed = 0.25 - 0.1 * (abs(angle) / 45)
+#     angle = (MAX_ANGLE - MIN_ANGLE) / 2 * angle / 35 + STRAIGHT_ANGLE
+#     if angle > MAX_ANGLE:
+#         angle = MAX_ANGLE
+#     elif angle < MIN_ANGLE:
+#         angle = MIN_ANGLE
+#     print("normalised servo angle", angle)
+#     # these motor directinos might need to be swapped?
+#
+#     # turning with wheel speed
+#
+#     # motor1 is left
+#     # motor1.backward(leftSpeed)
+#     # motor2.forward(rightSpeed)
+#     servo.angle = angle
 
 
 # only called steep corner -> if lane line is passed boundary (1/3 for each), call function
 # if lines are intersecting
 # if 2 lines are detected in one color (and intersecting/close???)
-def bang_bang_control(direction):
-    pass
+# def bang_bang_control(direction):
+#     if direction == 'left':
+#         turn(-10)
+#     elif direction == 'right':
+#         turn(10)
 
 def initialize_mask(frame):
     # change image to hsv for masking
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    # get only the blue pixels
-    lower_blue = np.array([90, 50, 70])
-    upper_blue = np.array([128, 255, 255])
+    # ainsworth
+    # lower_blue = np.array([90, 50, 70])
+    # upper_blue = np.array([128, 255, 255])
 
-    # alternative hsv mask
+    # mcic
+    lower_blue = np.array([100, 135, 50])
+    upper_blue = np.array([115, 255, 255])
+
+    # mcic
+    lower_yellow = np.array([15, 45, 95])
+    upper_yellow = np.array([65, 163, 200])
+
+    # idk yellow
     # lower_yellow = np.array([30, 100, 100])
     # upper_yellow = np.array([35, 255, 255])
 
-    # tuned yellow
-    lower_yellow = np.array([15, 60, 136])
-    upper_yellow = np.array([38, 163, 246])
+    # ainsworth yellow (tuned)
+    # lower_yellow = np.array([15, 60, 136])
+    # upper_yellow = np.array([38, 163, 246])
 
     mask_blue = cv2.inRange(hsv, lower_blue, upper_blue)
     mask_yellow = cv2.inRange(hsv, lower_yellow, upper_yellow)
@@ -100,7 +113,7 @@ def perspective_warp(img,
                      reverse=False):
     # gets image size and maps the src ratios to actual points in img
     img_size = np.float32([(img.shape[1],img.shape[0])])
-    src = src* img_size
+    src = src * img_size
     # maps the dst ratios to actual points in the final img
     dst = dst * img_size
 
@@ -303,13 +316,13 @@ def test_video(src):
         # edges_frame = extract_edges(img_mask[0])
         # cropped_edges_frame = crop_image(edges_frame)
         lane_lines_yellow_frame = display_lines(frame, lane_lines_yellow)
-        # lane_lines_blue_frame = display_lines(frame, lane_lines_blue)
+        lane_lines_blue_frame = display_lines(frame, lane_lines_blue)
 
         cv2.imshow('Test v4 original', frame)
         cv2.imshow('Test v4 color mask', img_mask[1])
         # cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
         cv2.imshow('Test v4 yellow lane lines', lane_lines_yellow_frame)
-        # cv2.imshow('Test v4 blue lane lines', lane_lines_blue_frame)
+        cv2.imshow('Test v4 blue lane lines', lane_lines_blue_frame)
 
         frame_counter += 1
 
@@ -340,7 +353,7 @@ def test_video(src):
 
         if (frame_counter % steering_rate == 0):
             heading_line_frame = display_heading_line(frame, previous_angle + 90)
-            turn(previous_angle)
+            # turn(previous_angle)
             cv2.imshow('Test v7 angle', heading_line_frame)
             print("STABLIZED", previous_angle)
             print("frame counter", frame_counter)
