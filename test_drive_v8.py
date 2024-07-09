@@ -86,19 +86,20 @@ def bang_bang_steering(frame, bbox):
 
     # note: (0, 0) in opencv is top left
     if x_center < frame_center:
-        turn(60, False)
+        turn(30, False)
         # TODO: TURN RIGHT AT FIXED SPEED + ANGLE
         pass
 
     if x_center > frame_center:
         # TODO: TURN LEFT AT FIXED SPEED + ANGLE
-        turn(-60, False)
+        turn(-30, False)
         pass
 
 
 def initialize_mask(frame):
     # change image to hsv for masking
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
 
     # TODO: Change hsv values for object/lane masks
     # object detection mask
@@ -250,6 +251,10 @@ def get_contours(edges):
 def detect_object(mask):
     max_bbox_area = 0
 
+    # TODO: Tune the area
+    # minimum bbox area to be considered as an obstacle
+    min_bbox_area = 50
+
     # get rid of noise before detecting contours
     cleaned_mask = preprocess_mask(mask)
     edges = extract_edges(cleaned_mask)
@@ -263,12 +268,13 @@ def detect_object(mask):
     # get largest bbox
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)
-        if w * h > max_bbox_area:
-            max_bbox_area = w * h
-            x_max = x
-            y_max = y
-            w_max = w
-            h_max = h
+        if w * h > min_bbox_area:
+            if w * h > max_bbox_area:
+                max_bbox_area = w * h
+                x_max = x
+                y_max = y
+                w_max = w
+                h_max = h
 
     obstacle = [(x_max, y_max), (x_max + w_max, y_max + h_max)]
     return obstacle, max_bbox_area
