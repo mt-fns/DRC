@@ -87,6 +87,7 @@ def initialize_mask(frame):
     # change image to hsv for masking
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
+
     # TODO: Change hsv values for object/lane masks
     # object detection mask
     lower_purple = np.array([120, 75, 40])
