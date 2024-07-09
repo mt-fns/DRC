@@ -3,13 +3,12 @@ import numpy as np
 import math
 PI = True
 DISPLAY = False
-if(PI):
-    from gpiozero import PhaseEnableMotor
-    from gpiozero import AngularServo
-    from gpiozero.pins.pigpio import PiGPIOFactory
-    import pigpio
+# if(PI):
+from gpiozero import PhaseEnableMotorS
+from gpiozero import AngularServo
+from gpiozero.pins.pigpio import PiGPIOFactory
+import pigpio
 
-DISPLAY = True
 SMOOTHING_FACTOR = 0.6
 MAX_ANGLE = 23
 MIN_ANGLE = -15
@@ -26,14 +25,16 @@ dir1_pin = 1
 servo_pin = 18
 
 # drive setup
-if(PI):
-    motor1 = PhaseEnableMotor(dir1_pin, pwm1_pin)
-    motor2 = PhaseEnableMotor(dir2_pin, pwm2_pin)
-    factory = PiGPIOFactory()
-    pi = pigpio.pi('soft', 8888)
-    servo = AngularServo(servo_pin, min_pulse_width=0.0005, max_pulse_width=0.00255, pin_factory=factory)
+# if(PI):
+print("hello")
 
-    servo.angle = 0
+motor1 = PhaseEnableMotor(dir1_pin, pwm1_pin)
+motor2 = PhaseEnableMotor(dir2_pin, pwm2_pin)
+factory = PiGPIOFactory()
+pi = pigpio.pi('soft', 8888)
+servo = AngularServo(servo_pin, min_pulse_width=0.0005, max_pulse_width=0.00255, pin_factory=factory)
+
+servo.angle = STRAIGHT_ANGLE
 
 def turn(angle, dontTurn):
     if(dontTurn):
@@ -59,8 +60,11 @@ def turn(angle, dontTurn):
         angle = MAX_ANGLE
     elif angle < MIN_ANGLE:
         angle = MIN_ANGLE
-    print("normalised servo angle", angle)
+    # print("normalised servo angle", angle)
 
+    motor1.forward(rightSpeed)
+    motor2.backward(leftSpeed)
+    servo.angle = angle
 
 # determine to steer right or left
 # called when object collision is detected
@@ -82,13 +86,13 @@ def bang_bang_steering(frame, bbox):
 
     # note: (0, 0) in opencv is top left
     if x_center < frame_center:
-        turn(30, false)
+        turn(60, False)
         # TODO: TURN RIGHT AT FIXED SPEED + ANGLE
         pass
 
     if x_center > frame_center:
         # TODO: TURN LEFT AT FIXED SPEED + ANGLE
-        turn(-30, false)
+        turn(-60, False)
         pass
 
 
@@ -267,7 +271,7 @@ def detect_object(mask):
             h_max = h
 
     obstacle = [(x_max, y_max), (x_max + w_max, y_max + h_max)]
-    return obstacle
+    return obstacle, max_bbox_area
 
 # determine whether object will collide with current trajectory
 def is_colliding(frame, bbox):
@@ -371,19 +375,19 @@ def test_video(src):
         lane_lines_blue = detect_lane(frame, img_mask[0])
 
         # img_mask[2] is the object mask, detect object returns object bounding box coordinates
-        object_purple = detect_object(img_mask[2])
-
+        object_purple, object_area = detect_object(img_mask[2])
+        print("object_arra is", object_area)
         # edges_frame = extract_edges(img_mask[1])
         # cropped_edges_frame = crop_image(edges_frame)
         # lane_lines_yellow_frame = display_lines(frame, lane_lines_yellow)
         # lane_lines_blue_frame = display_lines(frame, lane_lines_blue)
         if(DISPLAY):
-            cv2.imshow('Test v4 original', frame)
-            cv2.imshow('Test v4 color mask', img_mask[1])
-            cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
-            cv2.imshow('Test v4 yellow lane lines', lane_lines_yellow_frame)
-            cv2.imshow('Test v4 blue lane lines', lane_lines_blue_frame)
-
+            # cv2.imshow('Test v4 original', frame)
+            # cv2.imshow('Test v4 color mask', img_mask[1])
+            # cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
+            # cv2.imshow('Test v4 yellow lane lines', lane_lines_yellow_frame)
+            # cv2.imshow('Test v4 blue lane lines', lane_lines_blue_frame)
+            pass
         frame_counter += 1
 
         if (frame_counter % frame_rate == 0):
@@ -404,7 +408,7 @@ def test_video(src):
                     steering_angle = get_steering_angle(height, width, lane_lines)
                     previous_angle = stabilize_steering(previous_angle, steering_angle)
 
-                print("present angle is", steering_angle)
+                # print("present angle is", steering_angle)
             # no lane lines
             else:
                 steering_angle = 0
@@ -413,20 +417,23 @@ def test_video(src):
 
         if (frame_counter % steering_rate == 0):
             # bang bang steering for obstacle avoidance
-            if (is_colliding(frame, object_purple)):
+            if (object_area >100,000):
+
+                # is_colliding(frame, object_purple)):
                 # TODO: Tune bang-bang steering speed/angle
                 print("object detected")
                 bang_bang_steering(frame, object_purple)
                 continue
 
-            if(PI):
-                turn(previous_angle, False)
-            if(DISPLAY):
-                heading_line_frame = display_heading_line(frame, previous_angle + 90)
-                cv2.imshow('Test v7 angle', heading_line_frame)
-
-            print("STABLIZED", previous_angle)
-            print("frame counter", frame_counter)
+            # if(PI):
+            turn(previous_angle, False)
+            # if(DISPLAY):
+            #     # heading_line_frame = display_heading_line(frame, previous_angle + 90)
+            #     # cv2.imshow('Test v7 angle', heading_line_frame)
+            #     pass
+                
+            # print("STABLIZED", previous_angle)
+            # print("frame counter", frame_counter)
 
         if ret == True:
             if cv2.waitKey(1) == ord('q'):

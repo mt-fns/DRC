@@ -7,12 +7,14 @@ from gpiozero import AngularServo
 from gpiozero.pins.pigpio import PiGPIOFactory
 import pigpio
 
-SMOOTHING_FACTOR = 0.6
 MAX_ANGLE = 23
 MIN_ANGLE = -15
 STRAIGHT_ANGLE = 8
-STRAIGHT_SPEED = 0.4
-TURNING_SPEED_DIF = 0.35
+
+SMOOTHING_FACTOR = 0.6
+STRAIGHT_SPEED = 0.6
+TURNING_SPEED_DIF = 0.3
+
 NO_ANGLE_SPEED = 0.3
 
 #pcb pins (gpio)
@@ -304,8 +306,9 @@ def test_video(src):
     # change bounds if needed
     # bound = 1 / 2
 
-
+    print("start")
     while cap.isOpened():
+        print("open")
         ret, frame = cap.read()
         height, width, ch = frame.shape
         # left_bound = width * (1 - bound)
