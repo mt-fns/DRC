@@ -2,80 +2,57 @@ import cv2
 import numpy as np
 import math
 
-from gpiozero import PhaseEnableMotor
-from gpiozero import AngularServo
-from time import sleep
-from gpiozero.pins.pigpio import PiGPIOFactory
-import pigpio
+# only called steep corner -> if lane line is passed boundary (1/3 for each), call function
+# if lines are intersecting
+# if 2 lines are detected in one color (and intersecting/close???)
+def bang_bang_control(direction):
+    pass
 
-
-SMOOTHING_FACTOR = 0.5
-
-MAX_ANGLE = 15
-MIN_ANGLE = -15
-STRAIGHT_ANGLE = 0
-
-pwm2_pin = 5
-dir2_pin = 6
-pwm1_pin = 13
-dir1_pin = 19
-servo_pin = 17
-
-# drive setup
-motor1 = PhaseEnableMotor(dir1_pin, pwm1_pin)
-motor2 = PhaseEnableMotor(dir2_pin, pwm2_pin)
-factory = PiGPIOFactory()
-pi = pigpio.pi('soft', 8888)
-servo = AngularServo(servo_pin, min_pulse_width=0.0005, max_pulse_width=0.00255, pin_factory=factory)
-
-servo.angle = -3
-
-def turn(angle) :
-    # this is just a random formula to choose speed based on, linearly decreasing speed from some max to 0.1 which is real slow
-    speed = 0.2
-    if abs(angle) > 20:
-        speed = 0.13
-    angle = (MAX_ANGLE - MIN_ANGLE)/2 * angle/30 + STRAIGHT_ANGLE
-    if angle > MAX_ANGLE:
-        angle = MAX_ANGLE
-    elif angle < MIN_ANGLE:
-        angle = MIN_ANGLE
-    print("angle ", angle)
-    # these motor directinos might need to be swapped?
-    
-    motor1.backward(speed)
-    motor2.forward(speed)
-    servo.angle = angle
-
-
-
-def extract_edges(frame):
+def initialize_mask(frame):
     # change image to hsv for masking
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # get only the blue pixels
-
-    lower_blue = np.array([60, 40, 40])
-    upper_blue = np.array([150, 255, 255])
+    lower_blue = np.array([90, 50, 70])
+    upper_blue = np.array([128, 255, 255])
 
     # alternative hsv mask
-    lower_yellow = np.array([22, 93, 0])
-    upper_yellow = np.array([45, 255, 255])
+    # lower_yellow = np.array([30, 100, 100])
+    # upper_yellow = np.array([35, 255, 255])
 
-    # terrible mask
-    # lower_yellow = np.array([0, 10, 170])
-    # upper_yellow = np.array([180, 255, 255])
+    # tuned yellow
+    lower_yellow = np.array([15, 60, 136])
+    upper_yellow = np.array([38, 163, 246])
 
     mask_blue = cv2.inRange(hsv, lower_blue, upper_blue)
     mask_yellow = cv2.inRange(hsv, lower_yellow, upper_yellow)
 
-    # get yellow and blue lines
-    mask = mask_blue #| mask_yellow
+    # run to separate masks on the images
+    return [mask_blue, mask_yellow]
 
+def extract_edges(mask):
     # extract edges from lines
-    edges = cv2.Canny(mask, 200, 400)    # change to contour detection later
+    edges = cv2.Canny(mask, 50, 100)    # change to contour detection later
 
     return edges
+
+def perspective_warp(img,
+                     src=np.float32([(0.3,0.5),(0.7,0.5),(0,0.9),(1,0.9)]),
+                     dst=np.float32([(0,0), (1, 0), (0,1), (1,1)]),
+                     reverse=False):
+    # gets image size and maps the src ratios to actual points in img
+    img_size = np.float32([(img.shape[1],img.shape[0])])
+    src = src* img_size
+    # maps the dst ratios to actual points in the final img
+    dst = dst * img_size
+
+    # Given src and dst points, calculate the perspective transform matrix
+    M = cv2.getPerspectiveTransform(src, dst)
+    # Warp the image
+    if reverse:
+        M = cv2.getPerspectiveTransform(dst, src)
+    warped = cv2.warpPerspective(img, M, (img.shape[1], img.shape[0]))
+    return warped
 
 def crop_image(edges):
     height, width = edges.shape
@@ -99,15 +76,16 @@ def detect_line_segments(cropped_edges):
     # tuning min_threshold, minLineLength, maxLineGap is a trial and error process by hand
     rho = 1  # distance precision in pixel, i.e. 1 pixel
     angle = np.pi / 180  # angular precision in radian, i.e. 1 degree
-    min_threshold = 20  # minimal of votes
+    min_threshold = 50  # minimal of votes
 
-    line_segments = cv2.HoughLinesP(cropped_edges, rho, angle, min_threshold, np.array([]), minLineLength=8, maxLineGap=4)
+    line_segments = cv2.HoughLinesP(cropped_edges, rho, angle, min_threshold, np.array([]), minLineLength=20, maxLineGap=2)
     try:
         len(line_segments)
-        #print("yes")
         return line_segments
     except:
         return []
+
+# def noise_reduction()
 
 
 def calculate_slope_intercept(frame, line_segments):
@@ -128,7 +106,7 @@ def calculate_slope_intercept(frame, line_segments):
 
         # skip vertical line
         if x1 == x2:
-            #print("Vertical Line")
+            # print("Vertical Line")
             continue
 
         fit = np.polyfit((x1, x2), (y1, y2), 1)
@@ -167,26 +145,43 @@ def get_end_points(frame, line_fit):
     x2 = max(-width, min(2 * width, int((y2 - intercept) / slope)))
     return [[x1, y1, x2, y2]]
 
-def detect_lane(frame):
-    edges = extract_edges(frame)
-    cropped_edges = crop_image(edges)
-    line_segments = detect_line_segments(cropped_edges)
+def detect_lane(frame, mask):
+    mask_blue = mask[0]
+    mask_yellow = mask[1]
 
-    if len(line_segments) == 0:
-        #print("no lane lines")
+    edges_blue = extract_edges(mask_blue)
+    cropped_edges_blue = crop_image(edges_blue)
+
+    edges_yellow = extract_edges(mask_yellow)
+    cropped_edges_yellow = extract_edges(edges_yellow)
+
+    line_segments_blue = detect_line_segments(cropped_edges_blue)
+    line_segments_yellow = detect_line_segments(cropped_edges_yellow)
+
+    # no lanes
+    if len(line_segments_blue) == 0 and len(line_segments_yellow) == 0:
+        # print("no lane lines")
         return []
 
-    detected_lane = calculate_slope_intercept(frame, line_segments)
-    return detected_lane
+    # only yellow
+    elif len(line_segments_blue) == 0:
+        detected_lane = calculate_slope_intercept(frame, line_segments_yellow)
+        return detected_lane
 
+    # only blue
+    elif len(line_segments_yellow) == 0:
+        detected_lane = calculate_slope_intercept(frame, line_segments_blue)
+        return detected_lane
+
+    # both yellow and blue
+    else:
+        detected_lane_yellow = calculate_slope_intercept(frame, line_segments_yellow)
+        detected_lane_blue = calculate_slope_intercept(frame, line_segments_blue)
+        return detected_lane_yellow + detected_lane_blue
 
 def get_steering_angle(height, width, lane_lines):
-    # two lane lines
-    # print(lane_lines.shape)
-    # print(lane_lines[1][0], lane_lines[0][0])
-
     if len(lane_lines) == 2:
-        #print("two lines detected")
+        # print("two lines detected")
         _, _, left_x2, _ = lane_lines[0][0]
         _, _, right_x2, _ = lane_lines[1][0]
         mid = int(width / 2)
@@ -195,7 +190,7 @@ def get_steering_angle(height, width, lane_lines):
 
     # one lane line
     elif len(lane_lines) == 1:
-        #print("one line detected")
+        # print("one line detected")
         x1, _, x2, _ = lane_lines[0][0]
         x_offset = x2 - x1
         y_offset = int(height / 2)
@@ -216,7 +211,7 @@ def display_lines(frame, lines, line_color=(0, 255, 0), line_width=5):
     line_image = cv2.addWeighted(frame, 0.8, line_image, 1, 1)
     return line_image
 
-def stabilize_steering(previous_angle, current_angle, previous_weight=(1 - SMOOTHING_FACTOR), current_weight=SMOOTHING_FACTOR):
+def stabilize_steering(previous_angle, current_angle, previous_weight=0.9, current_weight=0.1):
     stabilized_angle = previous_angle * previous_weight + current_angle * current_weight
     return stabilized_angle
 
@@ -248,67 +243,50 @@ def test_video(src):
     previous_angle = 0
 
     # how many angles to output per second (camera has 60fps)
-    #won't this output 60/sensitivity = 12 per second?
-    frame_rate = 2 # 10 per second
-    steering_rate = 8 #
+    sensitivity = 6
     frame_counter = 0
 
     while cap.isOpened():
+        # input()
         ret, frame = cap.read()
-        if(ret):
-            frame_counter += 1
-        else:
-            continue
-        if (frame_counter % frame_rate != 0):
-            continue
         height, width, ch = frame.shape
-        
-        lane_lines = detect_lane(frame)
-        
 
-        if (frame_counter % frame_rate == 0):
-            #print('TEST 1')
+        img_mask = initialize_mask(frame)
+        lane_lines = detect_lane(frame, img_mask)
+        edges_frame = extract_edges(img_mask[1])
+        cropped_edges_frame = crop_image(edges_frame)
+        lane_lines_frame = display_lines(frame, lane_lines)
 
+        cv2.imshow('Test v4 original', frame)
+        cv2.imshow('Test v4 color mask', img_mask[0])
+        cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
+        cv2.imshow('Test v4 lane lines', lane_lines_frame)
+
+
+        frame_counter += 1
+
+        if (frame_counter % sensitivity == 0):
             if len(lane_lines) > 0:
-                steering_angle = get_steering_angle(height, width, lane_lines)
 
-                # TODO: output steering angles based on sensitivity
-                previous_angle = stabilize_steering(previous_angle, steering_angle)
+                pass
+                # steering_angle = get_steering_angle(height, width, lane_lines)
+                # #
+                # previous_angle = stabilize_steering(previous_angle, steering_angle)
+                # binary_mask = display_binary_mask(frame, img_mask)
 
-                #print("present angle", steering_angle)
-                #print("smoothed angle:", previous_angle)
-
-                angle = (MAX_ANGLE - MIN_ANGLE)/2 * previous_angle/30 + STRAIGHT_ANGLE
-                if angle > MAX_ANGLE:
-                    angle = MAX_ANGLE
-                elif angle < MIN_ANGLE:
-                    angle = MIN_ANGLE
-                #print("normalised servo angle", angle)
+                # print("CURRENT", steering_angle)
+                # print("STABLIZED", previous_angle)
+                # edges_frame = extract_edges(img_mask)
                 # lane_lines_frame = display_lines(frame, lane_lines)
 
-                # if steering_angle is not None:
-                # heading_line_frame = display_heading_line(frame, previous_angle)
-                # cv2.imshow('Test v2', heading_line_frame)
-            # continue
-        if frame_counter % steering_rate == 0:
-            
-            print("present angle", steering_angle)
-            print("smoothed angle:", previous_angle)
-            print("frame_counter", frame_counter)
-            #turn(previous_angle)
+                # heading_line_frame = display_heading_line(frame, previous_angle + 90)
+                # cv2.imshow('Test v4 angle', heading_line_frame)
 
         # if len(lane_lines) > 0:
-        #     #print('TEST')
         #     steering_angle = get_steering_angle(height, width, lane_lines)
-
         #     previous_angle = stabilize_steering(previous_angle, steering_angle)
 
-        #     #print(steering_angle)
-        #     #print(previous_angle)
-
         if ret == True:
-            # cv2.imshow('Vincent is hot', frame)
-
             if cv2.waitKey(1) == ord('q'):
                 break
 
@@ -319,6 +297,7 @@ def test_video(src):
     cv2.destroyAllWindows()
 
 
+# Unstable implementation from v2
 def test_image(src):
     frame = cv2.imread(src)
     lane_lines = detect_lane(frame)
@@ -331,3 +310,4 @@ def test_image(src):
     cv2.destroyAllWindows()
 
 test_video(0)
+# test_video("IMG_2066.mov")

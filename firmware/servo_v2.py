@@ -9,7 +9,7 @@ import pigpio
 # dir1_pin = 19
 # pwm2_pin = 5
 # dir2_pin = 6
-servo_pin = 17
+servo_pin = 18
 #GPIO names not pin names
 factory = PiGPIOFactory()
 pi = pigpio.pi('soft', 8888)

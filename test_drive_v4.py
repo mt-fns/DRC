@@ -8,33 +8,30 @@ def initialize_mask(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # get only the blue pixels
-    lower_blue = np.array([60, 40, 40])
+    lower_blue = np.array([90, 120, 0])
     upper_blue = np.array([150, 255, 255])
 
     # alternative hsv mask
-    lower_yellow = np.array([22, 93, 0])
-    upper_yellow = np.array([45, 255, 255])
+    # lower_yellow = np.array([30, 100, 100])
+    # upper_yellow = np.array([35, 255, 255])
 
-    # lower_yellow = np.array([0, 10, 170])
-    # upper_yellow = np.array([180, 255, 255])
+    # tuned yellow
+    lower_yellow = np.array([15, 60, 136])
+    upper_yellow = np.array([38, 163, 246])
 
     mask_blue = cv2.inRange(hsv, lower_blue, upper_blue)
     mask_yellow = cv2.inRange(hsv, lower_yellow, upper_yellow)
 
     # get yellow and blue lines
-    mask = mask_blue | mask_yellow
+    mask = cv2.bitwise_xor(mask_blue, mask_yellow)
 
     return mask
 
 def extract_edges(mask):
     # extract edges from lines
-    edges = cv2.Canny(mask, 200, 400)    # change to contour detection later
+    edges = cv2.Canny(mask, 50, 100)    # change to contour detection later
 
     return edges
-
-def display_binary_mask(frame, mask):
-    result = cv2.bitwise_and(frame, frame, mask=mask)
-    return result
 
 def perspective_warp(img,
                      src=np.float32([(0.3,0.5),(0.7,0.5),(0,0.9),(1,0.9)]),
@@ -76,14 +73,16 @@ def detect_line_segments(cropped_edges):
     # tuning min_threshold, minLineLength, maxLineGap is a trial and error process by hand
     rho = 1  # distance precision in pixel, i.e. 1 pixel
     angle = np.pi / 180  # angular precision in radian, i.e. 1 degree
-    min_threshold = 20  # minimal of votes
+    min_threshold = 50  # minimal of votes
 
-    line_segments = cv2.HoughLinesP(cropped_edges, rho, angle, min_threshold, np.array([]), minLineLength=20, maxLineGap=8)
+    line_segments = cv2.HoughLinesP(cropped_edges, rho, angle, min_threshold, np.array([]), minLineLength=20, maxLineGap=2)
     try:
         len(line_segments)
         return line_segments
     except:
         return []
+
+# def noise_reduction()
 
 
 def calculate_slope_intercept(frame, line_segments):
@@ -238,7 +237,7 @@ def test_video(src):
         cropped_edges_frame = crop_image(edges_frame)
         lane_lines_frame = display_lines(frame, lane_lines)
 
-        cv2.imshow('Test v4 original', frame)
+        # cv2.imshow('Test v4 original', frame)
         cv2.imshow('Test v4 color mask', img_mask)
         cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
         cv2.imshow('Test v4 lane lines', lane_lines_frame)
@@ -295,5 +294,5 @@ def test_image(src):
     # closing all open windows
     cv2.destroyAllWindows()
 
-test_video("yellow_lanes3.mp4")
+test_video(0)
 # test_video("IMG_2066.mov")
