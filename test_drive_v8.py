@@ -3,13 +3,14 @@ import numpy as np
 import math
 PI = True
 DISPLAY = False
+
 if(PI):
     from gpiozero import PhaseEnableMotor
     from gpiozero import AngularServo
     from gpiozero.pins.pigpio import PiGPIOFactory
     import pigpio
 
-DISPLAY = True
+# DISPLAY = True
 SMOOTHING_FACTOR = 0.6
 MAX_ANGLE = 23
 MIN_ANGLE = -15
@@ -82,13 +83,13 @@ def bang_bang_steering(frame, bbox):
 
     # note: (0, 0) in opencv is top left
     if x_center < frame_center:
-        turn(30, false)
+        turn(30, False)
         # TODO: TURN RIGHT AT FIXED SPEED + ANGLE
         pass
 
     if x_center > frame_center:
         # TODO: TURN LEFT AT FIXED SPEED + ANGLE
-        turn(-30, false)
+        turn(-30, False)
         pass
 
 
@@ -247,6 +248,10 @@ def get_contours(edges):
 def detect_object(mask):
     max_bbox_area = 0
 
+    # TODO: Tune the area
+    # minimum bbox area to be considered as an obstacle
+    min_bbox_area = 50
+
     # get rid of noise before detecting contours
     cleaned_mask = preprocess_mask(mask)
     edges = extract_edges(cleaned_mask)
@@ -260,12 +265,13 @@ def detect_object(mask):
     # get largest bbox
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)
-        if w * h > max_bbox_area:
-            max_bbox_area = w * h
-            x_max = x
-            y_max = y
-            w_max = w
-            h_max = h
+        if w * h > min_bbox_area:
+            if w * h > max_bbox_area:
+                max_bbox_area = w * h
+                x_max = x
+                y_max = y
+                w_max = w
+                h_max = h
 
     obstacle = [(x_max, y_max), (x_max + w_max, y_max + h_max)]
     return obstacle
@@ -374,11 +380,12 @@ def test_video(src):
         # img_mask[2] is the object mask, detect object returns object bounding box coordinates
         object_purple = detect_object(img_mask[2])
 
-        # edges_frame = extract_edges(img_mask[1])
-        # cropped_edges_frame = crop_image(edges_frame)
-        # lane_lines_yellow_frame = display_lines(frame, lane_lines_yellow)
-        # lane_lines_blue_frame = display_lines(frame, lane_lines_blue)
+
         if(DISPLAY):
+            edges_frame = extract_edges(img_mask[1])
+            cropped_edges_frame = crop_image(edges_frame)
+            lane_lines_yellow_frame = display_lines(frame, lane_lines_yellow)
+            lane_lines_blue_frame = display_lines(frame, lane_lines_blue)
             cv2.imshow('Test v4 original', frame)
             cv2.imshow('Test v4 color mask', img_mask[1])
             cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
