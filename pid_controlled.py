@@ -35,9 +35,10 @@ servo = AngularServo(servo_pin, min_pulse_width=0.0005, max_pulse_width=0.00255,
 servo.angle = STRAIGHT_ANGLE
 
 # initialise PID controller
-pid_controller = PidController(kp=1, ki=0, kd=0)
+pid_controller = PidController(kp=1, ki=0.1, kd=0.05)
 
 def turn(angle, dontTurn):
+
     if(dontTurn):
         servo.angle = STRAIGHT_ANGLE
         motor1.forward(NO_ANGLE_SPEED)
@@ -55,10 +56,9 @@ def turn(angle, dontTurn):
         leftSpeed = STRAIGHT_SPEED + turn_dif  # this means if left angle i.e. negative, motor will turn slower
         rightSpeed = STRAIGHT_SPEED - turn_dif
 
-    # OLD PROPORTIONAL CONTROL
-    # angle = ((MAX_ANGLE - MIN_ANGLE) / 2) * (angle / 45) + STRAIGHT_ANGLE
-    # ------------------------------
-
+    # MAP ANGLE
+    angle = ((MAX_ANGLE - MIN_ANGLE) / 2) * (angle / 45) + STRAIGHT_ANGLE
+    
     # NEW PID CONTROL
     angle = pid_controller.control_angle(angle)
 

@@ -1,9 +1,10 @@
 # module for PID control formula
 
-class PidController():
+class PidController :
     def __init__(self, kp, ki, kd):
         self.kp = kp
         self.ki = ki
+        self.kd = kd
         self.previous_error = 0
         self.integral = 0
 
@@ -18,11 +19,13 @@ class PidController():
             angle (angle): output angle
         """
 
-        error = angle
-        dt = 1
-
+        error = 0 - angle
         proportional = error
-        derivative = (error - self.previous_error) / dt
+        self.integral += error
+        derivative = error - self.previous_error
+
         output_angle = self.kp * proportional + self.ki * self.integral + self.kd * derivative
         self.previous_error = error
         return output_angle
+
+    
