@@ -57,7 +57,7 @@ def turn(angle, dontTurn):
         rightSpeed = STRAIGHT_SPEED - turn_dif
 
     # MAP ANGLE
-    angle = ((MAX_ANGLE - MIN_ANGLE) / 2) * (angle / 45) + STRAIGHT_ANGLE
+    # angle = ((MAX_ANGLE - MIN_ANGLE) / 2) * (angle / 45) + STRAIGHT_ANGLE
     
     # NEW PID CONTROL
     angle = pid_controller.control_angle(angle)

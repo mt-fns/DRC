@@ -21,7 +21,6 @@ class PidController :
 
         error = 0 - angle
         proportional = error
-        self.integral += error
         derivative = error - self.previous_error
 
         output_angle = self.kp * proportional + self.ki * self.integral + self.kd * derivative
