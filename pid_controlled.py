@@ -35,7 +35,7 @@ servo = AngularServo(servo_pin, min_pulse_width=0.0005, max_pulse_width=0.00255,
 servo.angle = STRAIGHT_ANGLE
 
 # initialise PID controller
-pid_controller = PidController(kp=1, ki=0.1, kd=0.05)
+pid_controller = PidController(kp=1, ki=0, kd=0.5)
 
 def turn(angle, dontTurn):
 
@@ -57,7 +57,7 @@ def turn(angle, dontTurn):
         rightSpeed = STRAIGHT_SPEED - turn_dif
 
     # MAP ANGLE
-    # angle = ((MAX_ANGLE - MIN_ANGLE) / 2) * (angle / 45) + STRAIGHT_ANGLE
+    angle = ((MAX_ANGLE - MIN_ANGLE) / 2) * (angle / 45) + STRAIGHT_ANGLE
     
     # NEW PID CONTROL
     angle = pid_controller.control_angle(angle)
