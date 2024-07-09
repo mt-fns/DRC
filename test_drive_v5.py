@@ -8,7 +8,7 @@ from time import sleep
 from gpiozero.pins.pigpio import PiGPIOFactory
 import pigpio
 
-SMOOTHING_FACTOR = 0.5
+SMOOTHING_FACTOR = 1
 
 MAX_ANGLE = 15
 MIN_ANGLE = -15
@@ -267,11 +267,9 @@ def test_video(src):
     previous_angle = 0
 
     # how many angles to output per second (camera has 60fps)
-    sensitivity = 6
-    frame_counter = 0
 
-    frame_rate = 2 # 30 per second?
-    steering_rate = 8 #
+    frame_rate = 1 # 30 per second?
+    steering_rate = 4 #
     frame_counter = 0
 
     while cap.isOpened():
