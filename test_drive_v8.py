@@ -1,16 +1,22 @@
 import cv2
 import numpy as np
 import math
+PI = True
+DISPLAY = False
+if(PI):
+    from gpiozero import PhaseEnableMotor
+    from gpiozero import AngularServo
+    from gpiozero.pins.pigpio import PiGPIOFactory
+    import pigpio
 
-# from gpiozero import PhaseEnableMotor
-# from gpiozero import AngularServo
-# from gpiozero.pins.pigpio import PiGPIOFactory
-# import pigpio
-
+DISPLAY = True
 SMOOTHING_FACTOR = 0.6
-MAX_ANGLE = 22
+MAX_ANGLE = 23
 MIN_ANGLE = -15
 STRAIGHT_ANGLE = 8
+STRAIGHT_SPEED = 0.4
+TURNING_SPEED_DIF = 0.35
+NO_ANGLE_SPEED = 0.3
 
 #pcb pins (gpio)
 pwm2_pin = 25
@@ -20,45 +26,48 @@ dir1_pin = 1
 servo_pin = 18
 
 # drive setup
-# motor1 = PhaseEnableMotor(dir1_pin, pwm1_pin)
-# motor2 = PhaseEnableMotor(dir2_pin, pwm2_pin)
-# factory = PiGPIOFactory()
-# pi = pigpio.pi('soft', 8888)
-# servo = AngularServo(servo_pin, min_pulse_width=0.0005, max_pulse_width=0.00255, pin_factory=factory)
-#
-# servo.angle = 0
+if(PI):
+    motor1 = PhaseEnableMotor(dir1_pin, pwm1_pin)
+    motor2 = PhaseEnableMotor(dir2_pin, pwm2_pin)
+    factory = PiGPIOFactory()
+    pi = pigpio.pi('soft', 8888)
+    servo = AngularServo(servo_pin, min_pulse_width=0.0005, max_pulse_width=0.00255, pin_factory=factory)
 
-# def turn(angle, dontTurn):
-#     if(dontTurn):
-#         servo.angle = STRAIGHT_ANGLE
-#         motor1.forward(NO_ANGLE_SPEED)
-#         motor2.backward(NO_ANGLE_SPEED)
-#         return
-#
-#     # this is just a random formula to choose speed based on, linearly decreasing speed from some max to 0.1 which is real slow
-#     turn_dif = min(abs((angle / 60)) * TURNING_SPEED_DIF, TURNING_SPEED_DIF)
-#     leftSpeed = 0
-#     rightSpeed = 0
-#     if (angle < 0):
-#         leftSpeed = STRAIGHT_SPEED - turn_dif  # this means if left angle i.e. negative, motor will turn slower
-#         rightSpeed = STRAIGHT_SPEED + turn_dif
-#     elif (angle > 0):
-#         leftSpeed = STRAIGHT_SPEED + turn_dif  # this means if left angle i.e. negative, motor will turn slower
-#         rightSpeed = STRAIGHT_SPEED - turn_dif
-#
-#
-#     angle = ((MAX_ANGLE - MIN_ANGLE) / 2) * (angle / 45) + STRAIGHT_ANGLE
-#     if angle > MAX_ANGLE:
-#         angle = MAX_ANGLE
-#     elif angle < MIN_ANGLE:
-#         angle = MIN_ANGLE
-#     print("normalised servo angle", angle)
+    servo.angle = 0
+
+def turn(angle, dontTurn):
+    if(dontTurn):
+        servo.angle = STRAIGHT_ANGLE
+        motor1.forward(NO_ANGLE_SPEED)
+        motor2.backward(NO_ANGLE_SPEED)
+        return
+
+    # this is just a random formula to choose speed based on, linearly decreasing speed from some max to 0.1 which is real slow
+    turn_dif = min(abs((angle / 60)) * TURNING_SPEED_DIF, TURNING_SPEED_DIF)
+    leftSpeed = 0
+    rightSpeed = 0
+    if (angle < 0):
+        leftSpeed = STRAIGHT_SPEED - turn_dif  # this means if left angle i.e. negative, motor will turn slower
+        rightSpeed = STRAIGHT_SPEED + turn_dif
+    elif (angle > 0):
+        leftSpeed = STRAIGHT_SPEED + turn_dif  # this means if left angle i.e. negative, motor will turn slower
+        rightSpeed = STRAIGHT_SPEED - turn_dif
+
+
+    angle = ((MAX_ANGLE - MIN_ANGLE) / 2) * (angle / 45) + STRAIGHT_ANGLE
+    if angle > MAX_ANGLE:
+        angle = MAX_ANGLE
+    elif angle < MIN_ANGLE:
+        angle = MIN_ANGLE
+    print("normalised servo angle", angle)
 
 
 # determine to steer right or left
 # called when object collision is detected
 # steer a fixed amount at a fixed speed
 def bang_bang_steering(frame, bbox):
+    if(not PI):
+        return
     _, width, _ = frame.shape
 
     x_min = bbox[0][0]
@@ -73,13 +82,13 @@ def bang_bang_steering(frame, bbox):
 
     # note: (0, 0) in opencv is top left
     if x_center < frame_center:
+        turn(30, false)
         # TODO: TURN RIGHT AT FIXED SPEED + ANGLE
-        # turn()
         pass
 
     if x_center > frame_center:
         # TODO: TURN LEFT AT FIXED SPEED + ANGLE
-        # turn()
+        turn(-30, false)
         pass
 
 
@@ -90,8 +99,13 @@ def initialize_mask(frame):
 
     # TODO: Change hsv values for object/lane masks
     # object detection mask
-    lower_purple = np.array([120, 75, 40])
-    upper_purple = np.array([160, 255, 255])
+    #Michael's purple
+    # lower_purple = np.array([120, 75, 40])
+    # upper_purple = np.array([160, 255, 255])
+
+    #tuned purple
+    lower_purple = np.array([136, 57, 45])
+    upper_purple = np.array([178, 206, 158])
 
     # blue lane line mask
     lower_blue = np.array([90, 50, 70])
@@ -364,12 +378,12 @@ def test_video(src):
         # cropped_edges_frame = crop_image(edges_frame)
         # lane_lines_yellow_frame = display_lines(frame, lane_lines_yellow)
         # lane_lines_blue_frame = display_lines(frame, lane_lines_blue)
-
-        # cv2.imshow('Test v4 original', frame)
-        # cv2.imshow('Test v4 color mask', img_mask[1])
-        # cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
-        # cv2.imshow('Test v4 yellow lane lines', lane_lines_yellow_frame)
-        # cv2.imshow('Test v4 blue lane lines', lane_lines_blue_frame)
+        if(DISPLAY):
+            cv2.imshow('Test v4 original', frame)
+            cv2.imshow('Test v4 color mask', img_mask[1])
+            cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
+            cv2.imshow('Test v4 yellow lane lines', lane_lines_yellow_frame)
+            cv2.imshow('Test v4 blue lane lines', lane_lines_blue_frame)
 
         frame_counter += 1
 
@@ -402,12 +416,15 @@ def test_video(src):
             # bang bang steering for obstacle avoidance
             if (is_colliding(frame, object_purple)):
                 # TODO: Tune bang-bang steering speed/angle
+                print("object detected")
                 bang_bang_steering(frame, object_purple)
                 continue
 
-            # heading_line_frame = display_heading_line(frame, previous_angle + 90)
-            # turn(previous_angle, False)
-            # cv2.imshow('Test v7 angle', heading_line_frame)
+            if(PI):
+                turn(previous_angle, False)
+            if(DISPLAY):
+                heading_line_frame = display_heading_line(frame, previous_angle + 90)
+                cv2.imshow('Test v7 angle', heading_line_frame)
 
             print("STABLIZED", previous_angle)
             print("frame counter", frame_counter)
