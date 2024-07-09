@@ -415,6 +415,7 @@ def test_video(src):
             # bang bang steering for obstacle avoidance
             if (is_colliding(frame, object_purple)):
                 # TODO: Tune bang-bang steering speed/angle
+                print("object detected")
                 bang_bang_steering(frame, object_purple)
                 continue
 
