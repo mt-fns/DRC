@@ -12,8 +12,8 @@ MAX_ANGLE = 23
 MIN_ANGLE = -15
 STRAIGHT_ANGLE = 8
 
-SMOOTHING_FACTOR = 0.6
-STRAIGHT_SPEED = 0.6
+SMOOTHING_FACTOR = 1
+STRAIGHT_SPEED = 0.5
 TURNING_SPEED_DIF = 0.3
 
 NO_ANGLE_SPEED = 0.3
@@ -35,10 +35,10 @@ servo = AngularServo(servo_pin, min_pulse_width=0.0005, max_pulse_width=0.00255,
 servo.angle = STRAIGHT_ANGLE
 
 # initialise PID controller
-pid_controller = PidController(kp=1, ki=0, kd=0.5)
+pid_controller = PidController(kp=0.7, ki=0, kd=0.5)
 
 def turn(angle, dontTurn):
-
+    prev_angle = angle
     if(dontTurn):
         servo.angle = STRAIGHT_ANGLE
         motor1.forward(NO_ANGLE_SPEED)
@@ -49,24 +49,28 @@ def turn(angle, dontTurn):
     turn_dif = min(abs((angle / 60)) * TURNING_SPEED_DIF, TURNING_SPEED_DIF)
     leftSpeed = 0
     rightSpeed = 0
-    if (angle < 0):
-        leftSpeed = STRAIGHT_SPEED - turn_dif  # this means if left angle i.e. negative, motor will turn slower
-        rightSpeed = STRAIGHT_SPEED + turn_dif
-    elif (angle > 0):
-        leftSpeed = STRAIGHT_SPEED + turn_dif  # this means if left angle i.e. negative, motor will turn slower
-        rightSpeed = STRAIGHT_SPEED - turn_dif
 
     # MAP ANGLE
     angle = ((MAX_ANGLE - MIN_ANGLE) / 2) * (angle / 45) + STRAIGHT_ANGLE
-    
-    # NEW PID CONTROL
     angle = pid_controller.control_angle(angle)
+
+    if (angle < 4):
+        leftSpeed = STRAIGHT_SPEED - turn_dif  # this means if left angle i.e. negative, motor will turn slower
+        rightSpeed = STRAIGHT_SPEED + turn_dif
+    elif (angle > -4):
+        leftSpeed = STRAIGHT_SPEED + turn_dif  # this means if left angle i.e. negative, motor will turn slower
+        rightSpeed = STRAIGHT_SPEED - turn_dif
+    else:
+        leftSpeed = STRAIGHT_SPEED
+        rightSpeed = STRAIGHT_SPEED
 
     if angle > MAX_ANGLE:
         angle = MAX_ANGLE
     elif angle < MIN_ANGLE:
         angle = MIN_ANGLE
 
+
+    # NEW PID CONTROL
     print("normalised servo angle", angle)
 
 
@@ -310,7 +314,7 @@ def test_video(src):
 
     # how many angles to output per second (camera has 60fps)
     frame_rate = 1  # 30 per second?
-    steering_rate = 2  #
+    steering_rate = 1  #
     frame_counter = 0
 
     # change bounds if needed

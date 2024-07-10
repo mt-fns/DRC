@@ -18,8 +18,12 @@ class PidController :
         output:
             angle (angle): output angle
         """
-
-        error = 0 - angle
+        if angle < 4 and angle > -4:
+            error = 0
+            self.previous_angle = error
+            return angle
+        
+        error = angle
         proportional = error
         derivative = error - self.previous_error
 

@@ -51,11 +51,11 @@ def turn(angle, dontTurn):
         leftSpeed = STRAIGHT_SPEED - turn_dif  # this means if left angle i.e. negative, motor will turn slower
         rightSpeed = STRAIGHT_SPEED + turn_dif
     elif (angle > 0):
-        leftSpeed = STRAIGHT_SPEED + turn_dif  # this means if left angle i.e. negative, motor will turn slower
-        rightSpeed = STRAIGHT_SPEED - turn_dif
+        leftSpeed = STRAIGHT_SPEED + turn_dif * 0.8 # this means if left angle i.e. negative, motor will turn slower
+        rightSpeed = STRAIGHT_SPEED - turn_dif * 0.8
 
 
-    angle = ((MAX_ANGLE - MIN_ANGLE) / 2) * (angle / 45) + STRAIGHT_ANGLE
+    angle = ((MAX_ANGLE - MIN_ANGLE) / 2) * (angle / 60) + STRAIGHT_ANGLE
     if angle > MAX_ANGLE:
         angle = MAX_ANGLE
     elif angle < MIN_ANGLE:
