@@ -141,60 +141,108 @@ def get_steering_angle(height, width, lane_lines):
 
     angle_to_mid_radian = math.atan(x_offset / y_offset)  # angle (in radian) to center vertical line
     angle_to_mid_deg = int(angle_to_mid_radian * 180.0 / math.pi)  # angle (in degrees) to center vertical line
-    steering_angle = angle_to_mid_deg + 90  # this is the steering angle needed by picar front wheel
+    steering_angle = angle_to_mid_deg + 90  # this is the steering angle needed by front wheel
 
-    print(steering_angle)
-
-
-def display_steering(frame, lane_lines, steering_angle):
-    thicc = 9
-    color = (0, 255, 0)
-
-    line_1 = lane_lines[0][0]
-    start_line_1 = (line_1[0], line_1[1])
-    end_line_1 = (line_1[2], line_1[3])
-
-    if len(lane_lines) == 2:
-        line_2 = lane_lines[1][0]
-        start_line_2 = (line_2[0], line_2[1])
-        end_line_2 = (line_2[2], line_2[3])
-
-        image = cv2.line(frame, start_line_1, end_line_1, color, thicc)
-        cv2.line(image, start_line_2, end_line_2, color, thicc)
-    else:
-        # one line detected
-        cv2.line(frame, start_line_1, end_line_1, color, thicc)
+    return steering_angle
 
 
-cap = cv2.VideoCapture('image1.jpg')
-while(cap.isOpened()):
-    ret, frame = cap.read()
-    height, width, ch = frame.shape
+def display_lines(frame, lines, line_color=(0, 255, 0), line_width=5):
+    line_image = np.zeros_like(frame)
+    if lines is not None:
+        for line in lines:
+            for x1, y1, x2, y2 in line:
+                cv2.line(line_image, (x1, y1), (x2, y2), line_color, line_width)
+    line_image = cv2.addWeighted(frame, 0.8, line_image, 1, 1)
+    return line_image
 
-    lane_lines = detect_lane(frame)
-    if len(lane_lines) > 0:
-        steering_angle = get_steering_angle(height, width, lane_lines)
-        display_steering(frame, lane_lines, steering_angle)
+def stabilize_steering(previous_angle, current_angle, previous_weight=0.9, current_weight=0.1):
+    stabilized_angle = previous_angle * previous_weight + current_angle * current_weight
+    return stabilized_angle
 
-    if ret == True:
-        cv2.imshow('Vincent is hot', frame)
+def display_heading_line(frame, steering_angle, line_color=(0, 0, 255), line_width=5 ):
+    heading_image = np.zeros_like(frame)
+    height, width, _ = frame.shape
 
-        if cv2.waitKey(1) == ord('q'):
+    # figure out the heading line from steering angle
+    # heading line (x1,y1) is always center bottom of the screen
+    # (x2, y2) requires a bit of trigonometry
+
+    # Note: the steering angle of:
+    # 0-89 degree: turn left
+    # 90 degree: going straight
+    # 91-180 degree: turn right
+    steering_angle_radian = steering_angle / 180.0 * math.pi
+    x1 = int(width / 2)
+    y1 = height
+    x2 = int(x1 - height / 2 / math.tan(steering_angle_radian))
+    y2 = int(height / 2)
+
+    cv2.line(heading_image, (x1, y1), (x2, y2), line_color, line_width)
+    heading_image = cv2.addWeighted(frame, 0.8, heading_image, 1, 1)
+
+    return heading_image
+
+def test_video(src):
+    cap = cv2.VideoCapture(src)
+    previous_angle = 0
+
+    # how many angles to output per second (camera has 60fps)
+    sensitivity = 5
+    frame_counter = 0
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        height, width, ch = frame.shape
+
+        lane_lines = detect_lane(frame)
+        frame_counter += 1
+
+        if (frame_counter % sensitivity == 0):
+            if len(lane_lines) > 0:
+                steering_angle = get_steering_angle(height, width, lane_lines)
+
+                # TODO: output steering angles based on sensitivity
+                previous_angle = stabilize_steering(previous_angle, steering_angle)
+
+                print(steering_angle)
+                print(previous_angle)
+                # lane_lines_frame = display_lines(frame, lane_lines)
+
+                # if steering_angle is not None:
+                heading_line_frame = display_heading_line(frame, previous_angle)
+                cv2.imshow('Test v2', heading_line_frame)
+
+
+        if len(lane_lines) > 0:
+            steering_angle = get_steering_angle(height, width, lane_lines)
+
+            previous_angle = stabilize_steering(previous_angle, steering_angle)
+
+            print(steering_angle)
+            print(previous_angle)
+
+        if ret == True:
+            # cv2.imshow('Vincent is hot', frame)
+
+            if cv2.waitKey(1) == ord('q'):
+                break
+
+        else:
             break
 
-    else:
-        break
+    cap.release()
+    cv2.destroyAllWindows()
 
-cap.release()
-cv2.destroyAllWindows()
 
-# while True:
-#     frame = cv2.imread('road1_240x320.png')
-#     height, width, ch = frame.shape
-#
-#     lane_lines = detect_lane(frame)
-#     steering_angle = get_steering_angle(height, width, lane_lines)
-#     display_steering(frame, lane_lines, steering_angle)
-#
-#     if cv2.waitKey(1) == ord('q'):
-#         break
+def test_image(src):
+    frame = cv2.imread(src)
+    lane_lines = detect_lane(frame)
+    lane_lines_image = display_lines(frame, lane_lines)
+
+    cv2.imshow("lane lines", lane_lines_image)
+    cv2.waitKey(0)
+
+    # closing all open windows
+    cv2.destroyAllWindows()
+
+test_video("../images/test1.mp4")

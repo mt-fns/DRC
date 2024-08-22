@@ -252,18 +252,24 @@ def test_video(src):
         height, width, ch = frame.shape
 
         img_mask = initialize_mask(frame)
-        lane_lines = detect_lane(frame, img_mask)
-        edges_frame = extract_edges(img_mask[1])
-        cropped_edges_frame = crop_image(edges_frame)
-        lane_lines_frame = display_lines(frame, lane_lines)
 
-        cv2.imshow('Test v4 original', frame)
-        cv2.imshow('Test v4 color mask', img_mask[0])
-        cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
-        cv2.imshow('Test v4 lane lines', lane_lines_frame)
+        try:
+            lane_lines = detect_lane(frame, img_mask)
+        except:
+            print("ERROR")
+            continue
+        # edges_frame = extract_edges(img_mask[1])
+        # cropped_edges_frame = crop_image(edges_frame)
+        # lane_lines_frame = display_lines(frame, lane_lines)
+
+        # cv2.imshow('Test v4 original', frame)
+        # cv2.imshow('Test v4 color mask', img_mask[0])
+        # cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
+        # cv2.imshow('Test v4 lane lines', lane_lines_frame)
 
 
         frame_counter += 1
+        print("DEBUG", frame_counter)
 
         if (frame_counter % sensitivity == 0):
             if len(lane_lines) > 0:
@@ -282,14 +288,13 @@ def test_video(src):
                 # heading_line_frame = display_heading_line(frame, previous_angle + 90)
                 # cv2.imshow('Test v4 angle', heading_line_frame)
 
-        # if len(lane_lines) > 0:
-        #     steering_angle = get_steering_angle(height, width, lane_lines)
-        #     previous_angle = stabilize_steering(previous_angle, steering_angle)
+        if len(lane_lines) > 0:
+            steering_angle = get_steering_angle(height, width, lane_lines)
+            previous_angle = stabilize_steering(previous_angle, steering_angle)
 
         if ret == True:
             if cv2.waitKey(1) == ord('q'):
                 break
-
         else:
             break
 
@@ -309,5 +314,5 @@ def test_image(src):
     # closing all open windows
     cv2.destroyAllWindows()
 
-test_video(0)
+test_video("../images/test1.mp4")
 # test_video("IMG_2066.mov")

@@ -1,8 +1,8 @@
 import cv2
 import numpy as np
 import math
-PI = True
-DISPLAY = False
+PI = False
+DISPLAY = True
 
 if(PI):
     from gpiozero import PhaseEnableMotor
@@ -10,7 +10,6 @@ if(PI):
     from gpiozero.pins.pigpio import PiGPIOFactory
     import pigpio
 
-# DISPLAY = True
 SMOOTHING_FACTOR = 0.6
 MAX_ANGLE = 23
 MIN_ANGLE = -15
@@ -25,6 +24,12 @@ dir2_pin = 8
 pwm1_pin = 7
 dir1_pin = 1
 servo_pin = 18
+
+# stop logic
+GREEN_FRAME_COUNTER = 0
+
+# TODO: Tune to stop after x amount of green frames
+GREEN_FRAME_THRESHOLD = 10
 
 # drive setup
 if(PI):
@@ -84,13 +89,9 @@ def bang_bang_steering(frame, bbox):
     # note: (0, 0) in opencv is top left
     if x_center < frame_center:
         turn(30, False)
-        # TODO: TURN RIGHT AT FIXED SPEED + ANGLE
-        pass
 
     if x_center > frame_center:
-        # TODO: TURN LEFT AT FIXED SPEED + ANGLE
         turn(-30, False)
-        pass
 
 
 def initialize_mask(frame):
@@ -98,34 +99,39 @@ def initialize_mask(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
 
-    # TODO: Change hsv values for object/lane masks
     # object detection mask
     #Michael's purple
     # lower_purple = np.array([120, 75, 40])
     # upper_purple = np.array([160, 255, 255])
+
+    # TODO: Change hsv values for green
+    lower_green = np.array([255, 255, 255])
+    upper_green = np.array([255, 255, 255])
+
 
     #tuned purple
     lower_purple = np.array([136, 57, 45])
     upper_purple = np.array([178, 206, 158])
 
     # blue lane line mask
-    lower_blue = np.array([90, 50, 70])
-    upper_blue = np.array([128, 255, 255])
+    lower_blue = np.array([100, 135, 50])
+    upper_blue = np.array([115, 255, 255])
 
     # alternative yellow mask
     # lower_yellow = np.array([30, 100, 100])
     # upper_yellow = np.array([35, 255, 255])
 
     # yellow lane line mask
-    lower_yellow = np.array([15, 60, 136])
-    upper_yellow = np.array([38, 163, 246])
+    lower_yellow = np.array([15, 45, 95])
+    upper_yellow = np.array([65, 163, 246])
 
     mask_blue = cv2.inRange(hsv, lower_blue, upper_blue)
     mask_yellow = cv2.inRange(hsv, lower_yellow, upper_yellow)
     mask_purple = cv2.inRange(hsv, lower_purple, upper_purple)
+    mask_green = cv2.inRange(hsv, lower_green, upper_green)
 
     # run to separate masks on the images
-    return [mask_blue, mask_yellow, mask_purple]
+    return [mask_blue, mask_yellow, mask_purple, mask_green]
 
 def extract_edges(mask):
     # extract edges from lines
@@ -354,6 +360,22 @@ def display_heading_line(frame, steering_angle, line_color=(0, 0, 255), line_wid
 
     return heading_image
 
+# detect if green stop line is present
+def detect_stop_line(frame, mask):
+    height, width, _ = frame.shape
+
+    ones = cv2.countNonZero(mask)
+
+    # percentage of color in the current frame
+    percent_color = (ones / (height * width)) * 100
+
+    # TODO: Tune the percent threshold for the finish line
+    # percent threshold of color to be considered valid in the current frame
+    percent_threshold = 5
+
+    # if percent_color > percent_threshold:
+    #     GREEN_FRAME_COUNTER += 1
+
 def test_video(src):
     cap = cv2.VideoCapture(src)
     previous_angle = 0
@@ -379,6 +401,7 @@ def test_video(src):
 
         # img_mask[2] is the object mask, detect object returns object bounding box coordinates
         object_purple = detect_object(img_mask[2])
+        finish_line_green = img_mask[3]
 
 
         if(DISPLAY):
@@ -386,11 +409,11 @@ def test_video(src):
             cropped_edges_frame = crop_image(edges_frame)
             lane_lines_yellow_frame = display_lines(frame, lane_lines_yellow)
             lane_lines_blue_frame = display_lines(frame, lane_lines_blue)
-            cv2.imshow('Test v4 original', frame)
-            cv2.imshow('Test v4 color mask', img_mask[1])
-            cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
-            cv2.imshow('Test v4 yellow lane lines', lane_lines_yellow_frame)
-            cv2.imshow('Test v4 blue lane lines', lane_lines_blue_frame)
+            cv2.imshow('Test v8 original', frame)
+            cv2.imshow('Test v8 color mask', img_mask[1])
+            cv2.imshow('Test v8 cropped edge detect', cropped_edges_frame)
+            cv2.imshow('Test v8 yellow lane lines', lane_lines_yellow_frame)
+            cv2.imshow('Test v8 blue lane lines', lane_lines_blue_frame)
 
         frame_counter += 1
 
@@ -422,7 +445,6 @@ def test_video(src):
         if (frame_counter % steering_rate == 0):
             # bang bang steering for obstacle avoidance
             if (is_colliding(frame, object_purple)):
-                # TODO: Tune bang-bang steering speed/angle
                 print("object detected")
                 bang_bang_steering(frame, object_purple)
                 continue
@@ -431,7 +453,7 @@ def test_video(src):
                 turn(previous_angle, False)
             if(DISPLAY):
                 heading_line_frame = display_heading_line(frame, previous_angle + 90)
-                cv2.imshow('Test v7 angle', heading_line_frame)
+                cv2.imshow('Test v8 angle', heading_line_frame)
 
             print("STABLIZED", previous_angle)
             print("frame counter", frame_counter)
@@ -458,5 +480,5 @@ def test_image(src):
     # closing all open windows
     cv2.destroyAllWindows()
 
-test_video(0)
+test_video("images/IMG_2066.mov")
 # test_video("IMG_2066.mov")

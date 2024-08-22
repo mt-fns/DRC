@@ -332,4 +332,4 @@ def test_image(src):
     cv2.destroyAllWindows()
 
 
-test_video("IMG_2066.mov")
+test_video("../images/IMG_2066.mov")

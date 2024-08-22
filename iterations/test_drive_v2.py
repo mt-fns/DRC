@@ -245,4 +245,4 @@ def test_image(src):
     # closing all open windows
     cv2.destroyAllWindows()
 
-test_video("IMG_1854.MOV")
+test_video("../images/IMG_1854.MOV")
