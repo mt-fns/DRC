@@ -7,13 +7,19 @@ from gpiozero import AngularServo
 from gpiozero.pins.pigpio import PiGPIOFactory
 import pigpio
 
-SMOOTHING_FACTOR = 0.6
+BLUE = 0
+YELLOW = 1
+
 MAX_ANGLE = 23
 MIN_ANGLE = -15
 STRAIGHT_ANGLE = 8
-STRAIGHT_SPEED = 0.4
-TURNING_SPEED_DIF = 0.35
-NO_ANGLE_SPEED = 0.3
+
+SMOOTHING_FACTOR = 1
+STRAIGHT_SPEED = 0.9
+TURNING_SPEED = 0.7
+TURNING_SPEED_DIF = 0.45
+
+NO_ANGLE_SPEED = 0.8
 
 #pcb pins (gpio)
 pwm2_pin = 25
@@ -32,6 +38,18 @@ servo = AngularServo(servo_pin, min_pulse_width=0.0005, max_pulse_width=0.00255,
 servo.angle = STRAIGHT_ANGLE
 
 def turn(angle, dontTurn):
+    if(angle > 65):
+        servo.angle = -(((MAX_ANGLE - MIN_ANGLE) / 2) * (angle /45) + STRAIGHT_ANGLE)
+        motor1.backward(NO_ANGLE_SPEED)
+        motor2.forward(NO_ANGLE_SPEED)
+        print("yooooooooooooo")
+        return
+    if(angle < - 65):
+        print("yooooooooooooo")
+        servo.angle = -(((MAX_ANGLE - MIN_ANGLE) / 2) * (angle /45) + STRAIGHT_ANGLE)
+        motor1.backward(NO_ANGLE_SPEED)
+        motor2.forward(NO_ANGLE_SPEED)
+        return
     if(dontTurn):
         servo.angle = STRAIGHT_ANGLE
         motor1.forward(NO_ANGLE_SPEED)
@@ -39,30 +57,36 @@ def turn(angle, dontTurn):
         return
 
     # this is just a random formula to choose speed based on, linearly decreasing speed from some max to 0.1 which is real slow
-    turn_dif = min(abs((angle / 60)) * TURNING_SPEED_DIF, TURNING_SPEED_DIF)
+    # multiplier = abs(angle)/120 + angle*angle/3600
+    # if(angle < 0):
+    #     multiplier = -multiplier 
+    # print("angle is ", angle, "multiplier is", multiplier)
+    turn_dif = min(abs(angle/45) * TURNING_SPEED_DIF, TURNING_SPEED_DIF) # abs(angle/45) * TURNING_SPEED_DIF, TURNING_SPEED_DIF) #
     leftSpeed = 0
     rightSpeed = 0
-    if (angle < 0):
-        leftSpeed = STRAIGHT_SPEED - turn_dif  # this means if left angle i.e. negative, motor will turn slower
-        rightSpeed = STRAIGHT_SPEED + turn_dif
-    elif (angle > 0):
-        leftSpeed = STRAIGHT_SPEED + turn_dif  # this means if left angle i.e. negative, motor will turn slower
-        rightSpeed = STRAIGHT_SPEED - turn_dif
+    if (angle < -25):
+        leftSpeed = TURNING_SPEED - turn_dif  # this means if left angle i.e. negative, motor will turn slower
+        rightSpeed = min(TURNING_SPEED + turn_dif, 0.9)
+    elif (angle > 25):
+        leftSpeed = min(TURNING_SPEED + turn_dif, 0.9)  # this means if left angle i.e. negative, motor will turn slower
+        rightSpeed = TURNING_SPEED - turn_dif
+    else:
+        leftSpeed = STRAIGHT_SPEED - min((abs(angle)/45) * 0.1, 0.1)
+        rightSpeed = STRAIGHT_SPEED - min((abs(angle)/45) * 0.1, 0.1)
 
-
-    angle = ((MAX_ANGLE - MIN_ANGLE) / 2) * (angle / 45) + STRAIGHT_ANGLE
+    angle = ((MAX_ANGLE - MIN_ANGLE) / 2) * (angle /45) + STRAIGHT_ANGLE#
     if angle > MAX_ANGLE:
         angle = MAX_ANGLE
     elif angle < MIN_ANGLE:
         angle = MIN_ANGLE
-    print("normalised servo angle", angle)
+    # print("normalised servo angle", angle)
 
 
 
 
     # leftSpeed = 0.2 + min((angle/60) * 0.15, 0.15) #this means if left angle i.e. negative, motor will turn slower
     # rightSpeed = 0.2 - min((angle/60) * 0.15, 0.15) #this means if right angle i.e. positive motor will turn slower
-    print("left speed rightspeed and angle", leftSpeed, rightSpeed, angle)
+    # print("left speed rightspeed and angle", leftSpeed, rightSpeed, angle)
     # speed = 0.25 - 0.1 * (abs(angle) / 45)
     
     # these motor directinos might need to be swapped?
@@ -70,8 +94,18 @@ def turn(angle, dontTurn):
     # turning with wheel speed
 
     # motor1 is left
-    motor1.forward(rightSpeed)
-    motor2.backward(leftSpeed)
+    if(rightSpeed < 0):
+        motor1.backward(0.2)#abs(rightSpeed))
+    else:
+        motor1.forward(rightSpeed)
+
+    if(leftSpeed < 0):
+        motor2.forward(0.2)#abs(leftSpeed))
+    else:
+        motor2.backward(leftSpeed)
+
+
+
     servo.angle = angle
 
 
@@ -160,11 +194,11 @@ def detect_line_segments(cropped_edges):
 
 
 # calculate lines slope for one lane
-def calculate_slope_intercept(frame, line_segments):
+def calculate_slope_intercept(frame, line_segments, colour):
     # height, width, ch = frame.shape
     lane_lines = []
     lines_end_point = []
-
+    panic = False
     # left_line = []
     # right_line = []
 
@@ -172,7 +206,8 @@ def calculate_slope_intercept(frame, line_segments):
     # bound = 1/3
     # left_bound = width * (1 - bound)
     # right_bound = width * bound
-
+    slope_sum = 0
+    slope_num = 0
     for line in line_segments:
         # points that make up the line segments
         x1, y1, x2, y2 = line[0]
@@ -186,6 +221,10 @@ def calculate_slope_intercept(frame, line_segments):
         slope = fit[0]
         intercept = fit[1]
         lane_lines.append((slope, intercept))
+        slope_sum += slope
+        slope_num += 1
+        
+
     #
     #     # check if left line is within bounds
     #     if slope < 0:
@@ -202,8 +241,14 @@ def calculate_slope_intercept(frame, line_segments):
 
     if len(lane_lines) > 0:
         lines_end_point.append(get_end_points(frame, lines_avg))
+    
+        slope_avg = slope_sum/slope_num
+        print("slope avg is ", slope_avg, " colour is ", colour)
+        if((colour == BLUE and (slope_avg < 0.5)) or (colour == YELLOW and slope_avg > -0.5)):
+            panic = True
+            
 
-    return lines_end_point
+    return lines_end_point, panic
 
 # helper function for slope intercept
 def get_end_points(frame, line_fit):
@@ -218,20 +263,21 @@ def get_end_points(frame, line_fit):
     return [[x1, y1, x2, y2]]
 
 # detect lane line of one colour
-def detect_lane(frame, mask):
+def detect_lane(frame, mask, colour):
     mask = mask
     edges = extract_edges(mask)
     cropped_edges = crop_image(edges)
     line_segments = detect_line_segments(cropped_edges)
 
+    
     # no lanes
     if len(line_segments) == 0:
         # print("no lane lines")
-        return []
+        return [], False
 
     else:
-        detected_lane = calculate_slope_intercept(frame, line_segments)
-        return detected_lane
+        detected_lane, panic = calculate_slope_intercept(frame, line_segments, colour)
+        return detected_lane, panic
 
 def get_steering_angle(height, width, lane_lines):
     if len(lane_lines) == 2:
@@ -298,13 +344,13 @@ def test_video(src):
 
     # how many angles to output per second (camera has 60fps)
     frame_rate = 1  # 30 per second?
-    steering_rate = 2  #
+    steering_rate = 1  #
     frame_counter = 0
 
     # change bounds if needed
     # bound = 1 / 2
-
-
+    panic_yellow = False
+    panic_blue = False
     while cap.isOpened():
         ret, frame = cap.read()
         height, width, ch = frame.shape
@@ -312,8 +358,8 @@ def test_video(src):
         # right_bound = width * bound
 
         img_mask = initialize_mask(frame)
-        lane_lines_yellow = detect_lane(frame, img_mask[1])
-        lane_lines_blue = detect_lane(frame, img_mask[0])
+        lane_lines_yellow, panic_yellow = detect_lane(frame, img_mask[1], YELLOW)
+        lane_lines_blue, panic_blue = detect_lane(frame, img_mask[0], BLUE)
 
         # edges_frame = extract_edges(img_mask[0])
         # cropped_edges_frame = crop_image(edges_frame)
@@ -329,6 +375,14 @@ def test_video(src):
         frame_counter += 1
 
         if (frame_counter % frame_rate == 0):
+            # if(panic_yellow):
+            #     print("panicYellow")
+            #     turn(60, False)
+            #     continue
+            # if(panic_blue):
+            #     print("panicblue")
+            #     turn(-60, False)
+            #     continue
             if len(lane_lines_blue) > 0 or len(lane_lines_yellow) > 0:
                 # only yellow frame, check if bang-bang is needed
                 if len(lane_lines_blue) == 0:
@@ -362,8 +416,8 @@ def test_video(src):
             # heading_line_frame = display_heading_line(frame, previous_angle + 90)
             turn(previous_angle, False)
             # cv2.imshow('Test v7 angle', heading_line_frame)
-            print("STABLIZED", previous_angle)
-            print("frame counter", frame_counter)
+            # print("STABLIZED", previous_angle)
+            # print("frame counter", frame_counter)
 
         if ret == True:
             if cv2.waitKey(1) == ord('q'):

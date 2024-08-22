@@ -1,20 +1,21 @@
 import cv2
 import numpy as np
 import math
-PI = True
-DISPLAY = False
-# if(PI):
-from gpiozero import PhaseEnableMotorS
+
+from gpiozero import PhaseEnableMotor
 from gpiozero import AngularServo
 from gpiozero.pins.pigpio import PiGPIOFactory
 import pigpio
+from pid_formula import PidController
 
-SMOOTHING_FACTOR = 0.6
 MAX_ANGLE = 23
 MIN_ANGLE = -15
 STRAIGHT_ANGLE = 8
-STRAIGHT_SPEED = 0.4
-TURNING_SPEED_DIF = 0.35
+
+SMOOTHING_FACTOR = 1
+STRAIGHT_SPEED = 0.5
+TURNING_SPEED_DIF = 0.3
+
 NO_ANGLE_SPEED = 0.3
 
 #pcb pins (gpio)
@@ -25,9 +26,6 @@ dir1_pin = 1
 servo_pin = 18
 
 # drive setup
-# if(PI):
-print("hello")
-
 motor1 = PhaseEnableMotor(dir1_pin, pwm1_pin)
 motor2 = PhaseEnableMotor(dir2_pin, pwm2_pin)
 factory = PiGPIOFactory()
@@ -36,7 +34,11 @@ servo = AngularServo(servo_pin, min_pulse_width=0.0005, max_pulse_width=0.00255,
 
 servo.angle = STRAIGHT_ANGLE
 
+# initialise PID controller
+pid_controller = PidController(kp=0.7, ki=0, kd=0.5)
+
 def turn(angle, dontTurn):
+    prev_angle = angle
     if(dontTurn):
         servo.angle = STRAIGHT_ANGLE
         motor1.forward(NO_ANGLE_SPEED)
@@ -47,88 +49,75 @@ def turn(angle, dontTurn):
     turn_dif = min(abs((angle / 60)) * TURNING_SPEED_DIF, TURNING_SPEED_DIF)
     leftSpeed = 0
     rightSpeed = 0
-    if (angle < 0):
+
+    # MAP ANGLE
+    angle = ((MAX_ANGLE - MIN_ANGLE) / 2) * (angle / 45) + STRAIGHT_ANGLE
+    angle = pid_controller.control_angle(angle)
+
+    if (angle < 4):
         leftSpeed = STRAIGHT_SPEED - turn_dif  # this means if left angle i.e. negative, motor will turn slower
         rightSpeed = STRAIGHT_SPEED + turn_dif
-    elif (angle > 0):
-        leftSpeed = STRAIGHT_SPEED + turn_dif * 0.8 # this means if left angle i.e. negative, motor will turn slower
-        rightSpeed = STRAIGHT_SPEED - turn_dif * 0.8
+    elif (angle > -4):
+        leftSpeed = STRAIGHT_SPEED + turn_dif  # this means if left angle i.e. negative, motor will turn slower
+        rightSpeed = STRAIGHT_SPEED - turn_dif
+    else:
+        leftSpeed = STRAIGHT_SPEED
+        rightSpeed = STRAIGHT_SPEED
 
-
-    angle = ((MAX_ANGLE - MIN_ANGLE) / 2) * (angle / 60) + STRAIGHT_ANGLE
     if angle > MAX_ANGLE:
         angle = MAX_ANGLE
     elif angle < MIN_ANGLE:
         angle = MIN_ANGLE
-    # print("normalised servo angle", angle)
 
+
+    # NEW PID CONTROL
+    print("normalised servo angle", angle)
+
+
+
+
+    # leftSpeed = 0.2 + min((angle/60) * 0.15, 0.15) #this means if left angle i.e. negative, motor will turn slower
+    # rightSpeed = 0.2 - min((angle/60) * 0.15, 0.15) #this means if right angle i.e. positive motor will turn slower
+    print("left speed rightspeed and angle", leftSpeed, rightSpeed, angle)
+    # speed = 0.25 - 0.1 * (abs(angle) / 45)
+    
+    # these motor directinos might need to be swapped?
+
+    # turning with wheel speed
+
+    # motor1 is left
     motor1.forward(rightSpeed)
     motor2.backward(leftSpeed)
     servo.angle = angle
 
-# determine to steer right or left
-# called when object collision is detected
-# steer a fixed amount at a fixed speed
-def bang_bang_steering(frame, bbox):
-    if(not PI):
-        return
-    _, width, _ = frame.shape
 
-    x_min = bbox[0][0]
-    x_max = bbox[1][0]
-
-    x_center = (x_min + x_max) / 2
-    frame_center = width / 2
-
-    # error: no coordinates detected
-    if x_center == 0:
-        return
-
-    # note: (0, 0) in opencv is top left
-    if x_center < frame_center:
-        turn(30, False)
-        # TODO: TURN RIGHT AT FIXED SPEED + ANGLE
-        pass
-
-    if x_center > frame_center:
-        # TODO: TURN LEFT AT FIXED SPEED + ANGLE
-        turn(-30, False)
-        pass
-
+# only called steep corner -> if lane line is passed boundary (1/3 for each), call function
+# if lines are intersecting
+# if 2 lines are detected in one color (and intersecting/close???)
+def bang_bang_control(direction):
+    pass
 
 def initialize_mask(frame):
     # change image to hsv for masking
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-
-    # TODO: Change hsv values for object/lane masks
-    # object detection mask
-    #Michael's purple
-    # lower_purple = np.array([120, 75, 40])
-    # upper_purple = np.array([160, 255, 255])
-
-    #tuned purple
-    lower_purple = np.array([136, 57, 45])
-    upper_purple = np.array([178, 206, 158])
-
-    # blue lane line mask
+    # get only the blue pixels
     lower_blue = np.array([90, 50, 70])
     upper_blue = np.array([128, 255, 255])
 
-    # alternative yellow mask
+    # alternative hsv mask
     # lower_yellow = np.array([30, 100, 100])
     # upper_yellow = np.array([35, 255, 255])
 
-    # yellow lane line mask
+    # tuned yellow
     lower_yellow = np.array([15, 60, 136])
     upper_yellow = np.array([38, 163, 246])
 
     mask_blue = cv2.inRange(hsv, lower_blue, upper_blue)
     mask_yellow = cv2.inRange(hsv, lower_yellow, upper_yellow)
-    mask_purple = cv2.inRange(hsv, lower_purple, upper_purple)
 
     # run to separate masks on the images
-    return [mask_blue, mask_yellow, mask_purple]
+    return [mask_blue, mask_yellow]
 
 def extract_edges(mask):
     # extract edges from lines
@@ -192,15 +181,39 @@ def calculate_slope_intercept(frame, line_segments):
     lane_lines = []
     lines_end_point = []
 
+    # left_line = []
+    # right_line = []
+
+    # bound is 2/3
+    # bound = 1/3
+    # left_bound = width * (1 - bound)
+    # right_bound = width * bound
+
     for line in line_segments:
         # points that make up the line segments
         x1, y1, x2, y2 = line[0]
-
+    #
+    #     # skip vertical line
+    #     if x1 == x2:
+    #         # print("Vertical Line")
+    #         continue
+    #
         fit = np.polyfit((x1, x2), (y1, y2), 1)
         slope = fit[0]
         intercept = fit[1]
         lane_lines.append((slope, intercept))
+    #
+    #     # check if left line is within bounds
+    #     if slope < 0:
+    #         if x1 < left_bound and x2 < left_bound:
+    #             left_line.append((slope, intercept))
+    #     # check if right line is within bounds
+    #     else:
+    #         if x1 > right_bound and x2 > right_bound:
+    #             right_line.append((slope, intercept))
 
+    # left_avg = np.average(left_line, axis=0)
+    # right_avg = np.average(right_line, axis=0)
     lines_avg = np.average(lane_lines, axis=0)
 
     if len(lane_lines) > 0:
@@ -235,68 +248,6 @@ def detect_lane(frame, mask):
     else:
         detected_lane = calculate_slope_intercept(frame, line_segments)
         return detected_lane
-
-def preprocess_mask(mask):
-    # Apply morphological operations to clean up the mask
-    kernel = np.ones((5, 5), np.uint8)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-    return mask
-
-def get_contours(edges):
-    contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    return contours
-
-# returns bounding box coordinates of object
-def detect_object(mask):
-    max_bbox_area = 0
-
-    # TODO: Tune the area
-    # minimum bbox area to be considered as an obstacle
-    min_bbox_area = 50
-
-    # get rid of noise before detecting contours
-    cleaned_mask = preprocess_mask(mask)
-    edges = extract_edges(cleaned_mask)
-    contours = get_contours(edges)
-
-    x_max = 0
-    y_max = 0
-    h_max = 0
-    w_max = 0
-
-    # get largest bbox
-    for contour in contours:
-        x, y, w, h = cv2.boundingRect(contour)
-        if w * h > min_bbox_area:
-            if w * h > max_bbox_area:
-                max_bbox_area = w * h
-                x_max = x
-                y_max = y
-                w_max = w
-                h_max = h
-
-    obstacle = [(x_max, y_max), (x_max + w_max, y_max + h_max)]
-    return obstacle, max_bbox_area
-
-# determine whether object will collide with current trajectory
-def is_colliding(frame, bbox):
-    height, width, ch = frame.shape
-
-    # if object is in the middle 1/3 of the screen, collision may occur
-    w_bound_left = width * 1/3
-    w_bound_right = width * 2/3
-
-    x_min = bbox[0][0]
-    x_max = bbox[1][0]
-
-    # no obstacles/obstacles are out of bounds
-    if x_min == 0 and x_max == 0:
-        return False
-
-    # obstacles are in bound for collision
-    elif (w_bound_right > x_min > w_bound_left) or (w_bound_left < x_max < w_bound_right):
-        return True
 
 def get_steering_angle(height, width, lane_lines):
     if len(lane_lines) == 2:
@@ -363,14 +314,15 @@ def test_video(src):
 
     # how many angles to output per second (camera has 60fps)
     frame_rate = 1  # 30 per second?
-    steering_rate = 2  #
+    steering_rate = 1  #
     frame_counter = 0
 
     # change bounds if needed
     # bound = 1 / 2
 
-
+    print("start")
     while cap.isOpened():
+        print("open")
         ret, frame = cap.read()
         height, width, ch = frame.shape
         # left_bound = width * (1 - bound)
@@ -380,20 +332,17 @@ def test_video(src):
         lane_lines_yellow = detect_lane(frame, img_mask[1])
         lane_lines_blue = detect_lane(frame, img_mask[0])
 
-        # img_mask[2] is the object mask, detect object returns object bounding box coordinates
-        object_purple, object_area = detect_object(img_mask[2])
-        print("object_arra is", object_area)
-        # edges_frame = extract_edges(img_mask[1])
+        # edges_frame = extract_edges(img_mask[0])
         # cropped_edges_frame = crop_image(edges_frame)
         # lane_lines_yellow_frame = display_lines(frame, lane_lines_yellow)
         # lane_lines_blue_frame = display_lines(frame, lane_lines_blue)
-        if(DISPLAY):
-            # cv2.imshow('Test v4 original', frame)
-            # cv2.imshow('Test v4 color mask', img_mask[1])
-            # cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
-            # cv2.imshow('Test v4 yellow lane lines', lane_lines_yellow_frame)
-            # cv2.imshow('Test v4 blue lane lines', lane_lines_blue_frame)
-            pass
+
+        # cv2.imshow('Test v4 original', frame)
+        # cv2.imshow('Test v4 color mask', img_mask[1])
+        # cv2.imshow('Test v4 cropped edge detect', cropped_edges_frame)
+        # cv2.imshow('Test v4 yellow lane lines', lane_lines_yellow_frame)
+        # cv2.imshow('Test v4 blue lane lines', lane_lines_blue_frame)
+
         frame_counter += 1
 
         if (frame_counter % frame_rate == 0):
@@ -414,32 +363,24 @@ def test_video(src):
                     steering_angle = get_steering_angle(height, width, lane_lines)
                     previous_angle = stabilize_steering(previous_angle, steering_angle)
 
-                # print("present angle is", steering_angle)
+                print("present angle is", steering_angle)
             # no lane lines
             else:
                 steering_angle = 0
                 previous_angle = stabilize_steering(previous_angle, steering_angle)
+            
+            # no lane lines, set steering to zero
+            # else:
+            #     previous_angle = stabilize_steering(previous_angle, 0)
 
 
         if (frame_counter % steering_rate == 0):
-            # bang bang steering for obstacle avoidance
-            if (object_area >100,000):
 
-                # is_colliding(frame, object_purple)):
-                # TODO: Tune bang-bang steering speed/angle
-                print("object detected")
-                bang_bang_steering(frame, object_purple)
-                continue
-
-            # if(PI):
+            # heading_line_frame = display_heading_line(frame, previous_angle + 90)
             turn(previous_angle, False)
-            # if(DISPLAY):
-            #     # heading_line_frame = display_heading_line(frame, previous_angle + 90)
-            #     # cv2.imshow('Test v7 angle', heading_line_frame)
-            #     pass
-                
-            # print("STABLIZED", previous_angle)
-            # print("frame counter", frame_counter)
+            # cv2.imshow('Test v7 angle', heading_line_frame)
+            print("STABLIZED", previous_angle)
+            print("frame counter", frame_counter)
 
         if ret == True:
             if cv2.waitKey(1) == ord('q'):
